@@ -1,0 +1,205 @@
+Project Description – Tiny Machine Learning Gesture Interface for Provisio
+
+Project Overview
+
+This project aims to develop a Tiny Machine Learning (TinyML) gesture
+recognition system running on an embedded microcontroller using the
+ADXL343 three-axis accelerometer. The system will recognize predefined
+hand gestures in real time and use them as an intuitive input method for
+the larger Provisio prediction engine.
+
+Rather than attempting to execute complex prediction algorithms directly
+on resource-constrained embedded hardware, the TinyML component focuses
+on solving a well-defined sensor classification problem. The embedded
+device becomes an intelligent human interface capable of recognizing
+motion patterns locally with low latency and minimal power consumption.
+
+The project demonstrates the complete TinyML development pipeline,
+including data acquisition, preprocessing, model training, deployment to
+an embedded device, and real-time inference.
+
+Background
+
+The original concept for this project involved creating a TinyML-powered
+weather station capable of analyzing environmental sensor data. However,
+it became apparent that collecting sufficient weather data for
+meaningful machine learning within the project’s timeframe would be
+impractical.
+
+The project was therefore redesigned around gesture recognition, a
+well-established TinyML application that allows complete control over
+data collection while still demonstrating all required machine learning
+concepts.
+
+The gesture recognition system also integrates naturally into Provisio,
+an ongoing project focused on board and card game analysis and decision
+support.
+
+Problem Statement
+
+Traditional embedded systems often rely on buttons or touch interfaces
+for user interaction. This project investigates whether machine learning
+can enable intuitive gesture-based interaction using only motion sensor
+data from an embedded accelerometer.
+
+The challenge is to accurately recognize different gestures despite
+variations in speed, orientation, and execution while operating within
+the limited computational resources of a microcontroller.
+
+Objectives
+
+The primary objective is to develop an embedded TinyML system capable of
+recognizing multiple predefined hand gestures using acceleration data
+collected from an ADXL343 sensor.
+
+The project aims to:
+
+-   Collect acceleration data for a predefined gesture vocabulary.
+-   Build a labeled dataset.
+-   Preprocess sensor data for machine learning.
+-   Train and evaluate a lightweight classification model.
+-   Deploy the trained model onto an embedded microcontroller.
+-   Perform real-time on-device inference.
+-   Use recognized gestures to control or interact with the Provisio
+    prediction engine.
+
+System Description
+
+The system consists of three primary components:
+
+1. Sensor Module
+
+An ADXL343 three-axis digital accelerometer continuously measures
+movement and acceleration along the X, Y, and Z axes.
+
+The sensor streams acceleration data to the microcontroller, where
+samples are collected over a fixed time window for inference.
+
+2. TinyML Inference Engine
+
+The embedded device processes incoming sensor data and performs
+real-time gesture classification using a TensorFlow Lite for
+Microcontrollers model.
+
+Possible gestures include:
+
+-   Swipe Left
+-   Swipe Right
+-   Push Forward
+-   Pull Back
+-   Circle
+-   Shake
+-   Double Tap
+-   Idle / No Gesture
+
+The exact gesture vocabulary may be adjusted during development based on
+model performance and usability.
+
+3. Provisio Interface
+
+Once a gesture has been recognized, the embedded device sends a
+corresponding command to Provisio.
+
+Examples include:
+
+-   Navigate menus
+-   Confirm selections
+-   Request prediction
+-   Cycle through suggested moves
+-   Reset interface
+-   Cancel action
+
+The TinyML device therefore functions as an intelligent wireless or
+wired controller for the prediction engine rather than performing game
+analysis itself.
+
+Hardware
+
+The project will use:
+
+-   Microcontroller (to be determined)
+-   ADXL343 Three-Axis Accelerometer
+-   USB or Serial communication
+-   Development PC for data collection and model training
+
+Optional additions may include:
+
+-   Status LEDs
+-   OLED display
+-   Battery operation
+-   Bluetooth communication
+
+Machine Learning Workflow
+
+1.  Data Collection
+    -   Record multiple examples of each gesture.
+    -   Include data from different speeds and users if possible.
+2.  Data Labeling
+    -   Assign gesture labels to recorded samples.
+3.  Feature Preparation
+    -   Normalize acceleration values.
+    -   Divide recordings into fixed-size windows.
+    -   Prepare datasets for training.
+4.  Model Training
+    -   Train a lightweight neural network classifier.
+    -   Evaluate accuracy using validation and test datasets.
+5.  Model Optimization
+    -   Convert the model to TensorFlow Lite.
+    -   Quantize the model for embedded deployment.
+6.  Embedded Deployment
+    -   Integrate the model into firmware.
+    -   Perform on-device inference using live sensor data.
+7.  Evaluation
+    -   Measure classification accuracy.
+    -   Measure inference latency.
+    -   Measure memory usage.
+    -   Evaluate robustness against gesture variation.
+
+Expected Outcome
+
+The completed system should be capable of recognizing predefined
+gestures with acceptable accuracy while executing entirely on an
+embedded microcontroller without cloud connectivity.
+
+The project demonstrates that TinyML enables intelligent, low-power
+human-computer interaction through embedded machine learning.
+
+Furthermore, the gesture interface serves as a modular input device for
+Provisio, showcasing how TinyML components can integrate into larger
+intelligent systems.
+
+Relevance to Tiny Machine Learning
+
+This project satisfies the core objectives of a TinyML project by
+demonstrating:
+
+-   Embedded machine learning
+-   Real-time sensor processing
+-   Accelerometer-based data acquisition
+-   Dataset creation
+-   Model training and evaluation
+-   Model optimization for constrained hardware
+-   On-device inference
+-   Resource-aware system design
+
+Unlike traditional machine learning systems that rely on cloud
+computation, all inference is performed locally on the embedded device,
+highlighting the advantages of TinyML in terms of latency, privacy, and
+power efficiency.
+
+Future Work
+
+Potential future extensions include:
+
+-   Support for personalized gesture training.
+-   Additional sensor fusion using gyroscopes or magnetometers.
+-   Wireless communication with Provisio via Bluetooth Low Energy.
+-   Adaptive online learning.
+-   Expanded gesture vocabulary.
+-   Multi-user gesture profiles.
+-   Haptic feedback.
+-   Integration with other embedded AI applications.
+
+Note: Within the broader Provisio ecosystem, this TinyML device serves
+as a demonstration application and intelligent gesture interface rather
+than the prediction engine itself.

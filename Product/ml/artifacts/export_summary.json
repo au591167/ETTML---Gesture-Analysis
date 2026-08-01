@@ -1,0 +1,46 @@
+{
+  "project": "tinyml-gesture-blackjack-sim",
+  "target_mcu": "Particle Photon 2",
+  "model_family": "mlp",
+  "classes": [
+    "idle",
+    "tap1",
+    "tap2",
+    "tap3",
+    "shake_lr"
+  ],
+  "command_mapping": {
+    "tap1": "stand",
+    "tap2": "hit",
+    "shake_lr": "split",
+    "tap3": "exit"
+  },
+  "preprocessing": {
+    "remove_window_mean": true,
+    "use_magnitude_channel": true,
+    "scaler": "standard",
+    "clip_value": null
+  },
+  "features": {
+    "set": "stat_v1",
+    "include": [
+      "mean",
+      "std",
+      "min",
+      "max",
+      "range",
+      "energy",
+      "zero_crossings"
+    ]
+  },
+  "decision_logic": {
+    "confidence_threshold": 0.75,
+    "smoothing_windows": 3,
+    "debounce_ms": 300
+  },
+  "notes": [
+    "Finalize best-performing baseline model before hard export.",
+    "Ensure on-device preprocessing parity with training pipeline.",
+    "Record model size and latency for report metrics."
+  ]
+}

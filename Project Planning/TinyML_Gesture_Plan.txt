@@ -1,0 +1,137 @@
+TinyML Gesture Interface for Provisio – Execution Plan
+====================================================
+
+Project Overview
+----------------
+Develop a TinyML gesture‑recognition system on a microcontroller using the
+ADXL343 3‑axis accelerometer. Recognize predefined hand gestures (swipe left/right,
+push forward, pull back, circle, shake, double‑tap, idle) and send commands to the
+Provisio prediction engine.
+
+Goal: Complete the full TinyML pipeline (data collection → model training → quantization
+→ embedded deployment → real‑time inference) and integrate with Provisio by
+31 July 2026.
+
+Assumptions
+-----------
+- Available hardware: microcontroller (e.g., Arduino Nano 33 BLE Sense, STM32, ESP32)
+  + ADXL343 accelerometer breakout (or IMU containing it)
+  + USB/UART for data collection and command output
+- Development PC with Python 3.x, TensorFlow 2.x, Arduino IDE/PlatformIO.
+- Approximately 2‑3 hours per day available (~30‑48 h total).
+
+Timeline (Day‑by‑Day)
+---------------------
+Day 1 (today)
+  • Read and fully understand the project description.
+  • Inventory exact hardware (MCU model, accelerometer, cables).
+  • Create a Git repo or project folder with subfolders:
+        data/, scripts/, model/, firmware/, docs/
+
+Day 2
+  • Install development environment:
+        - Python 3.x, pip, virtualenv
+        - TensorFlow 2.x (`pip install tensorflow`)
+        - TensorFlow Lite Converter (installed with TF)
+        - Arduino IDE or PlatformIO + board support for your MCU
+        - ADXL343 driver library (I²C/SPI) – verify you can read raw acceleration.
+  • Test sensor readout with a simple sketch/script and log a few seconds of data.
+
+Day 3‑4
+  • Define gesture vocabulary and sampling plan:
+        - Sampling rate: 50 Hz (adjustable)
+        - Window size: 100 samples → 2 seconds per inference window
+        - Gestures: Swipe L/R, Push Fwd, Pull Back, Circle, Shake, Double Tap, Idle
+  • Write a data‑collection script (Python) that:
+        - Streams acceleration samples (time, ax, ay, az) to CSV.
+        - Allows manual labeling via filename or a label column.
+        - Stores each trial as `gesture_<name>_<trial>.csv`.
+  • Collect ≥20‑30 examples per gesture, varying speed and orientation.
+
+Day 5
+  • Inspect and clean data:
+        - Plot a few samples per gesture to verify consistency.
+        - Remove obvious outliers or mislabeled files.
+        - Normalize each axis to zero‑mean, unit‑variance (or scale to [-1, 1]).
+        - Ensure class balance; collect more data if any gesture is under‑represented.
+
+Day 6‑7
+  • Feature engineering & windowing (optional – raw windows also work):
+        - Split each recording into fixed windows (no overlap or 50% overlap).
+        - For each window compute features per axis:
+              mean, std, min, max, magnitude, zero‑crossings, etc.
+        - Resulting feature vector ~12‑18 dimensions.
+        - Save X (features) and y (labels) as NumPy arrays (.npz).
+
+Day 8‑9
+  • Model prototyping (Python/Keras):
+        - Try a small MLP: Input → Dense(16, relu) → Dense(16, relu) → Dense(num_gestures, softmax)
+        - Try a 1‑D ConvNet: Conv1D(16, k=3, relu) → Conv1D(16, k=3, relu) → Flatten → Dense(16, relu) → Output
+        - Train 20‑30 epochs, batch size 32, Adam optimizer, categorical cross‑entropy.
+        - Target validation accuracy ≥85 %.
+        - Save the best Keras model (.h5).
+
+Day 10
+  • Model optimization for embedded deployment:
+        - Convert Keras model to TensorFlow Lite:
+              `tf.lite.TFLiteConverter.from_keras_model(model).convert()`
+        - Apply post‑training integer quantization (int8) using a representative dataset.
+        - Verify quantized model accuracy drop < 2 %.
+        - Check model size (< 50 KB) and estimated RAM (< 20 KB).
+        - Save as `model.tflite` and also generate a C‑array (`xxd -i model.tflite > model_data.cc`).
+
+Day 11‑12
+  • Embedded integration:
+        - Add the generated C‑array model to your firmware project.
+        - Write minimal inference sketch:
+              * Include TensorFlow Lite for Microcontrollers library.
+              * Allocate tensors, load model_data.
+              * In loop(): read latest window of sensor data, normalize/feature‑extract
+                identically to training preprocessing.
+              * Run interpreter.Invoke().
+              * Map output index → gesture ID.
+        - Test with pre‑recorded CSV playback via Serial to verify classification logic.
+
+Day 13‑14
+  • Live testing on hardware:
+        - Stream live accelerometer data, compute features on‑device, run inference.
+        - Measure latency (target < 50 ms per inference) using micros().
+        - Optional: measure current draw.
+        - Apply simple smoothing (majority vote over last 3 windows) to reduce jitter.
+        - Iterate on thresholds or feature set if needed.
+
+Day 15
+  • Integration with Provisio:
+        - Decide on communication method (UART/USB serial simplest).
+        - Define a tiny protocol, e.g. `G:<gesture_id>\n` or a single‑byte command.
+        - Implement transmission in firmware after a stable gesture detection.
+        - Verify reception on PC side (Python serial reader or Provisio test harness).
+        - If BLE is required, allocate extra time for library setup.
+
+Day 16
+  • Documentation & final touches:
+        - Write a short report (2‑3 pages) covering:
+              problem statement, hardware, data pipeline, model architecture,
+              quantization results, performance metrics (accuracy, latency, RAM/Flash),
+              lessons learned.
+        - Prepare demo video or slide deck if required.
+        - Backup code, data, and trained models.
+        - Finalize repository/commits.
+
+Risk Mitigation
+---------------
+- Insufficient gesture data → collect varied examples early; merge confusing gestures if needed.
+- Model too large → start with ≤10k parameters, use quantization, consider depthwise separable conv.
+- Communication latency → keep protocol simple (single byte/short ASCII line); test UART first.
+- Toolchain issues → fallback to pre‑built Arduino TensorFlow Lite Library examples.
+- Time underestimation → daily 2‑3 h limit + buffer days (15‑16) provides slack.
+
+Success Criteria
+----------------
+- Recognizes ≥80 % of gestures correctly in live testing.
+- Inference latency < 50 ms per window.
+- Model footprint fits comfortably within MCU flash & RAM.
+- Commands are reliably transmitted to Provisio (or test harness).
+- Report/documentation submitted before 31 July 2026.
+
+You can copy this plan into any text‑editor or share with other agents.

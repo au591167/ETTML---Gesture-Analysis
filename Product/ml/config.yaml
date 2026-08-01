@@ -1,0 +1,83 @@
+project:
+  name: "tinyml-gesture-blackjack-sim"
+  target_mcu: "Particle Photon 2"
+  sensor: "ADXL343"
+
+data:
+  root_dir: "Product/data"
+  raw_dir: "Product/data/raw"
+  processed_dir: "Product/data/processed"
+  file_glob: "*.csv"
+  expected_columns: ["timestamp", "ax", "ay", "az", "label"]
+
+labels:
+  classes:
+    - idle
+    - tap1
+    - tap2
+    - tap3
+    - shake_lr
+  command_mapping:
+    tap1: "stand"
+    tap2: "hit"
+    shake_lr: "split"
+    tap3: "exit"
+
+sampling:
+  sample_rate_hz: 50
+  window_seconds: 1.0
+  stride_seconds: 0.2
+
+preprocessing:
+  remove_window_mean: true
+  use_magnitude_channel: true
+  scaler: "standard"   # standard | none
+  clip_value: null     # e.g. 6.0 for clipped z-score
+
+features:
+  set: "stat_v1"
+  include:
+    - mean
+    - std
+    - min
+    - max
+    - range
+    - energy
+    - zero_crossings
+
+model:
+  family: "mlp"        # mlp | rf
+  mlp:
+    hidden_layers: [32, 16]
+    activation: "relu"
+    epochs: 40
+    batch_size: 32
+    learning_rate: 0.001
+  rf:
+    n_estimators: 100
+    max_depth: 8
+    random_state: 42
+
+evaluation:
+  test_size: 0.2
+  val_size: 0.2
+  random_state: 42
+  metrics:
+    - accuracy
+    - precision_macro
+    - recall_macro
+    - f1_macro
+  report_confusion_matrix: true
+
+decision_logic:
+  confidence_threshold: 0.75
+  smoothing_windows: 3
+  debounce_ms: 300
+
+export:
+  output_dir: "Product/ml/artifacts"
+  save_scaler: true
+  save_label_map: true
+  formats:
+    - "pickle"
+    - "json_summary"
