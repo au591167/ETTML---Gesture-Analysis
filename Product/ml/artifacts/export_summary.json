@@ -38,9 +38,14 @@
     "smoothing_windows": 3,
     "debounce_ms": 300
   },
+  "firmware_artifacts": {
+    "header": "Product/firmware/model_data.h",
+    "source": "Product/firmware/model_data.cpp",
+    "feature_count": 28
+  },
   "notes": [
-    "Finalize best-performing baseline model before hard export.",
-    "Ensure on-device preprocessing parity with training pipeline.",
-    "Record model size and latency for report metrics."
+    "Concrete firmware-facing C/C++ artifacts were generated.",
+    "Current model_infer implementation is a placeholder adapter returning idle.",
+    "Next step: serialize trained model parameters and replace placeholder inference."
   ]
 }

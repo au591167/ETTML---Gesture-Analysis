@@ -77,6 +77,33 @@ This checklist is intended to make model-to-firmware handoff predictable and qui
 - [ ] Decision thresholds set to conservative defaults for first live trials.
 - [ ] Build compiles with model artifact integrated (or placeholder adapter).
 
+### B.1 Generated model artifact integration (exact handoff steps)
+1. Regenerate firmware model artifacts from repo root:
+   - `python Product/ml/export_model.py --config Product/ml/config.yaml`
+2. Confirm these files exist and are current:
+   - `Product/firmware/model_data.h`
+   - `Product/firmware/model_data.cpp`
+   - `Product/ml/artifacts/export_summary.json`
+3. Add both model files to your Photon firmware project (or ensure they are in the compile unit path).
+4. In firmware source that runs inference, include:
+   - `#include "model_data.h"`
+5. During setup/init:
+   - call `tinyml_model::model_init();`
+6. At inference time:
+   - prepare feature vector with length `tinyml_model::kFeatureCount`
+   - allocate score buffer with length `tinyml_model::kNumClasses`
+   - call:
+     - `tinyml_model::model_infer(features, tinyml_model::kFeatureCount, scores, tinyml_model::kNumClasses);`
+7. Convert scores -> class decision:
+   - map index to class name using `tinyml_model::kClassNames[idx]`
+   - map class to command with `tinyml_model::kCommandMap[idx]`
+8. Respect decision constants from generated header:
+   - `tinyml_model::kDecisionConfidenceThreshold`
+   - `tinyml_model::kDecisionSmoothingWindows`
+   - `tinyml_model::kDecisionDebounceMs`
+9. Current behavior note:
+   - `model_infer()` is a deterministic placeholder (idle fallback) until real trained-weight runtime is integrated.
+
 ### C. Pre-wire smoke path (before ADXL connected)
 - [ ] Firmware boots and emits startup diagnostics.
 - [ ] Protocol channel responds over serial at configured baud.
@@ -84,11 +111,25 @@ This checklist is intended to make model-to-firmware handoff predictable and qui
 - [ ] LED outputs can be toggled and observed (cue + RGB state patterns).
 
 ### D. First wire-up execution path (after ADXL connected)
-- [ ] Sensor detected over I2C (address and read sanity pass).
+- [ ] Wire ADXL343 to Photon 2 I2C:
+  - 3V3 -> 3Vo (or VIN)
+  - GND -> GND
+  - D0 (SDA) -> SDA
+  - D1 (SCL) -> SCL
+- [ ] Probe ADXL343 address in this order:
+  - primary `0x53`
+  - alternate `0x1D`
+- [ ] Read and verify DEVID register:
+  - register `0x00` must return `0xE5` before proceeding
 - [ ] Sample stream stability checked near target frequency.
 - [ ] Guided capture loop generates accepted/rejected trials correctly.
 - [ ] New real-data files appear under class folders in `Product/data/raw/`.
 - [ ] Retrain + export run completed on newly captured data.
+
+### D.2 Scope lock (ADXL-only baseline)
+- [ ] Keep firmware baseline focused on ADXL343 only (no LCD dependency).
+- [ ] Reserve shared I2C lines (D0/D1) for ADXL bring-up and capture validation.
+- [ ] Re-introduce LCD only after ADXL data path and capture pipeline are stable.
 
 ## Integration checkpoints
 

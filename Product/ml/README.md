@@ -23,7 +23,7 @@ This folder contains the **model-development foundation** for the gesture reader
 - `config.yaml` — central parameters for sampling, classes, model, decision logic
 - `feature_spec.md` — exact feature definitions and on-device parity rules
 - `train.py` — minimal training/evaluation scaffold
-- `export_model.py` — model export scaffold for embedded integration
+- `export_model.py` — concrete exporter generating firmware-facing C/C++ artifacts for integration
 - `capture_guided.py` — continuous serial capture utility (runs until Ctrl+C) for guided trial collection
 
 ## Important engineering rule
@@ -81,9 +81,37 @@ python -m venv .venv
 .\.venv\Scripts\python Product/ml/export_model.py --config Product/ml/config.yaml
 ```
 
+(also works on global Python if dependencies are installed)
+```powershell
+python Product/ml/export_model.py --config Product/ml/config.yaml
+```
+
 ### 6) Validate expected artifact output
-Confirm this file exists and is updated:
+Confirm these files exist and are updated:
 - `Product/ml/artifacts/export_summary.json`
+- `Product/firmware/model_data.h`
+- `Product/firmware/model_data.cpp`
+
+### 7) Firmware handoff (generated artifact usage)
+1. Ensure `model_data.h` and `model_data.cpp` are included in the firmware build.
+2. Include header in inference source:
+```cpp
+#include "model_data.h"
+```
+3. Initialize model wrapper once at startup:
+```cpp
+tinyml_model::model_init();
+```
+4. Run inference with generated constants:
+```cpp
+tinyml_model::model_infer(features, tinyml_model::kFeatureCount, scores, tinyml_model::kNumClasses);
+```
+5. Convert predicted index to names/commands via:
+   - `tinyml_model::kClassNames[idx]`
+   - `tinyml_model::kCommandMap[idx]`
+
+Current runtime note:
+- `model_infer()` is intentionally a deterministic placeholder (idle fallback) until trained-weight runtime serialization is integrated.
 
 ## GitHub commit checklist (what to push now)
 - [x] ML scripts and config (`train.py`, `export_model.py`, `capture_guided.py`, `config.yaml`)
