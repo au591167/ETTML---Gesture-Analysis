@@ -39,13 +39,14 @@
     "debounce_ms": 300
   },
   "firmware_artifacts": {
-    "header": "Product/firmware/model_data.h",
-    "source": "Product/firmware/model_data.cpp",
+    "header": "Product/firmware/src/model_data.h",
+    "source": "Product/firmware/src/model_data.cpp",
     "feature_count": 28
   },
+  "real_inference": true,
   "notes": [
-    "Concrete firmware-facing C/C++ artifacts were generated.",
-    "Current model_infer implementation is a placeholder adapter returning idle.",
-    "Next step: serialize trained model parameters and replace placeholder inference."
+    "Real MLP weights + StandardScaler serialized for firmware.",
+    "model_infer() now performs a real forward pass (scale + MLP + softmax).",
+    "Retrain on real captured data and re-export to update the deployed model."
   ]
 }

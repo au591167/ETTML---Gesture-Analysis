@@ -23,8 +23,9 @@ This folder contains the **model-development foundation** for the gesture reader
 - `config.yaml` — central parameters for sampling, classes, model, decision logic
 - `feature_spec.md` — exact feature definitions and on-device parity rules
 - `train.py` — minimal training/evaluation scaffold
-- `export_model.py` — concrete exporter generating firmware-facing C/C++ artifacts for integration
-- `capture_guided.py` — continuous serial capture utility (runs until Ctrl+C) for guided trial collection
+- `export_model.py` — concrete exporter generating firmware-facing C/C++ artifacts (real MLP weights + StandardScaler → `model_data.h/.cpp`)
+- `auto_capture.py` — **recommended** serial capture utility that acts as an OK/BAD confirmation responder for the firmware-led baseline capture, with optional model-based acceptance gating
+- `capture_guided.py` — older continuous serial capture utility (runs until Ctrl+C) for guided trial collection
 
 ## Important engineering rule
 Training preprocessing and on-device preprocessing must be identical.
@@ -50,13 +51,55 @@ Output behavior:
 - On `RESULT status=fail`: discards buffered trial samples
 - Stops only on `Ctrl+C`
 
+## Auto-capture with model-gated confirmation (`auto_capture.py`)
+
+The firmware (`main.cpp`) **drives** the baseline capture state machine. Host flow:
+1. Tool sends `START_BASELINE`.
+2. Firmware runs a 10 s stationary phase (idle), then cycles gestures (`tap1 → tap2 → tap3 → shake_lr`), prompts each, waits for physical motion, samples a 1.0 s window, then emits `confirm_ready` and waits for `OK`/`BAD`.
+3. The tool reads the stream, buffers `SAMPLE` lines per trial, and on `confirm_ready` decides `OK`/`BAD`.
+4. On `OK` the firmware emits `RESULT,status=ok`; the tool saves that trial to `Product/data/raw/<label>/`.
+
+### Important: first data sweep must bypass the model gate
+The current baseline model is trained on only a few (mostly synthetic) windows, so it cannot yet confidently recognize real gestures — the confidence gate (`0.75`) will reject nearly everything. **For the first real-data collection, run with `--auto-ok`** so every trial you actually perform is accepted (the label is already correct — it is the class the firmware prompted):
+
+```powershell
+.\.venv\Scripts\python Product/ml/auto_capture.py --port COM3 --baud 115200 --auto-ok
+```
+
+After collecting real data:
+```powershell
+.\.venv\Scripts\python Product/ml/train.py --config Product/ml/config.yaml
+.\.venv\Scripts\python Product/ml/export_model.py --config Product/ml/config.yaml
+```
+Then re-flash the updated model. Once the model is trained on real data, re-run `auto_capture.py` **without** `--auto-ok` to use model-based acceptance gating:
+```powershell
+.\.venv\Scripts\python Product/ml/auto_capture.py --port COM3 --baud 115200
+```
+
+Options:
+- `--auto-ok` — always send `OK` on `confirm_ready` (accept every trial)
+- `--confidence <f>` — min softmax confidence to accept (default `0.75`)
+- `--out <path>` — custom output root (default `Product/data/raw`)
+- `--artifacts <path>` — model/scaler/label_encoder folder (default `Product/ml/artifacts`)
+
 ## Baseline execution runbook (PowerShell, reproducible)
 
 Use this sequence from repository root (`s:/Projects/University/ETTML`).
 
+### 0) Use Python 3.11 (required — do not use 3.14)
+The ML stack (numpy/scikit-learn/pandas) has **stable prebuilt wheels only for Python ≤ 3.13**. On Python 3.14 the imports hang or crash (broken `_multiarray_umath` binaries), which is exactly what happened during lab setup. Use a Python 3.11 or 3.12 interpreter.
+
+```powershell
+# With uv (has a managed 3.11):
+uv python install 3.11
+uv venv --python 3.11 .venv
+
+# Or point at an installed 3.11/3.12:
+C:\path\to\python3.11\python.exe -m venv .venv
+```
+
 ### 1) Create/activate virtual environment (if needed)
 ```powershell
-python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
@@ -111,7 +154,7 @@ tinyml_model::model_infer(features, tinyml_model::kFeatureCount, scores, tinyml_
    - `tinyml_model::kCommandMap[idx]`
 
 Current runtime note:
-- `model_infer()` is intentionally a deterministic placeholder (idle fallback) until trained-weight runtime serialization is integrated.
+- `model_infer()` performs a **real MLP forward pass** on the deployed weights: StandardScaler → 3 ReLU layers → softmax scores. Re-export after retraining to update the deployed model.
 
 ## GitHub commit checklist (what to push now)
 - [x] ML scripts and config (`train.py`, `export_model.py`, `capture_guided.py`, `config.yaml`)

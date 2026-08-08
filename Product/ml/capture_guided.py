@@ -12,12 +12,17 @@ Behavior:
 - Buffers SAMPLE rows per trial.
 - On RESULT status=ok: writes one CSV file for that accepted trial.
 - On RESULT status=fail: discards buffered trial rows.
+- Also relays operator commands typed on STDIN (START_BASELINE, OK, BAD, ...)
+  to the device over the same serial port, so a single terminal can both log
+  data and confirm trials (only one process can hold the serial port).
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import sys
+import threading
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -64,6 +69,37 @@ def write_trial_csv(out_file: Path, rows: List[SampleRow]) -> None:
             w.writerow([r.timestamp, f"{r.ax:.6f}", f"{r.ay:.6f}", f"{r.az:.6f}", r.label, r.trial_id, r.session_id])
 
 
+def relay_stdin_to_serial(ser: serial.Serial, stop: threading.Event) -> None:
+    """Forward lines typed by the operator to the device over the same serial port.
+
+    Because only one process can open the serial port at a time, the logger owns
+    COMx and relays operator commands (START_BASELINE, OK, BAD, ECHO_ON, ...) so
+    the user does not need a separate serial monitor.
+    """
+    while not stop.is_set():
+        try:
+            line = sys.stdin.readline()
+        except Exception:
+            break
+        if not line:
+            # EOF (e.g. input closed)
+            break
+        line = line.strip()
+        if not line:
+            continue
+        if line.lower() in {"exit", "quit"}:
+            print("[capture] 'exit' received; stopping.")
+            break
+        try:
+            ser.write((line + "\n").encode("utf-8"))
+            ser.flush()
+            print(f"[tx] {line}")
+        except Exception as e:
+            print(f"[tx] error writing: {e}")
+            break
+    stop.set()
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Guided continuous gesture capture over serial.")
     ap.add_argument("--port", required=True, help="Serial port, e.g. COM6")
@@ -82,7 +118,14 @@ def main() -> None:
     buffer_rows: List[SampleRow] = []
 
     with serial.Serial(args.port, args.baud, timeout=1) as ser:
-        print("[capture] running; press Ctrl+C to stop.")
+        stop = threading.Event()
+        tx_thread = threading.Thread(
+            target=relay_stdin_to_serial, args=(ser, stop), daemon=True
+        )
+        tx_thread.start()
+
+        print("[capture] running; type commands (START_BASELINE/OK/BAD/...) to send.");
+        print("[capture] press Ctrl+C to stop.");
         try:
             while True:
                 raw = ser.readline()
@@ -148,6 +191,8 @@ def main() -> None:
 
         except KeyboardInterrupt:
             print("\n[capture] stopped by user.")
+        finally:
+            stop.set()
 
 
 if __name__ == "__main__":

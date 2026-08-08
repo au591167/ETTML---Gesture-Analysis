@@ -40,7 +40,9 @@ def load_config(path: str = "Product/ml/config.yaml") -> Dict:
 
 
 def load_raw_data(raw_dir: Path, file_glob: str) -> pd.DataFrame:
-    files = sorted(raw_dir.glob(file_glob))
+    # Data is organized per-class in subdirectories (e.g. raw/tap1/*.csv),
+    # so search recursively to collect all trial files.
+    files = sorted(raw_dir.rglob(file_glob))
     if not files:
         raise FileNotFoundError(f"No CSV files found in: {raw_dir}")
 
@@ -53,7 +55,11 @@ def load_raw_data(raw_dir: Path, file_glob: str) -> pd.DataFrame:
 
 
 def compute_magnitude(df: pd.DataFrame) -> pd.Series:
-    return np.sqrt(df["ax"] ** 2 + df["ay"] ** 2 + df["az"] ** 2)
+    # Coerce to numeric explicitly; concatenated CSVs can yield object dtype.
+    ax = pd.to_numeric(df["ax"], errors="coerce").fillna(0.0)
+    ay = pd.to_numeric(df["ay"], errors="coerce").fillna(0.0)
+    az = pd.to_numeric(df["az"], errors="coerce").fillna(0.0)
+    return np.sqrt(ax ** 2 + ay ** 2 + az ** 2)
 
 
 def sliding_windows(
