@@ -7,10 +7,14 @@ SYSTEM_THREAD(ENABLED);
 
 namespace {
 constexpr unsigned long kStatusIntervalMs = 2000;
+// Release gate: enable LIVE only for firmware compiled with a current,
+// class-complete exported model. The checked-in model uses pilot-v3 data.
+constexpr bool kModelReadyForLive = true;
 constexpr uint8_t kAdxlPrimaryAddr = 0x53;
 constexpr uint8_t kAdxlAltAddr = 0x1D;
 constexpr uint8_t kAdxlRegDevid = 0x00;
 constexpr uint8_t kAdxlRegPowerCtl = 0x2D;
+constexpr uint8_t kAdxlRegBwRate = 0x2C;
 constexpr uint8_t kAdxlRegDataFormat = 0x31;
 constexpr uint8_t kAdxlRegDataStart = 0x32;
 constexpr uint8_t kAdxlExpectedDevid = 0xE5;
@@ -18,18 +22,33 @@ constexpr float kAdxlScaleGPerLsb = 0.0039f; // full-resolution nominal scale
 uint8_t gAdxlAddr = 0;
 bool gAdxlReady = false;
 
+// OperatingMode answers "what is the device for right now?".  It is kept
+// separate from BaselinePhase, which describes a short-lived step inside a
+// TRAINING capture session.  Mixing these two concepts was the main source of
+// ambiguity in the original control flow.
+enum class OperatingMode : uint8_t {
+    DEBUG,
+    TRAINING,
+    LIVE
+};
+
+OperatingMode gOperatingMode = OperatingMode::DEBUG;
+
 // Toggle for inference/STATUS serial output to reduce flooding.
 // Set to false (via ECHO_OFF) to silence the periodic heartbeat prints.
 bool gEchoInference = true;
 
 // ---- Inference pipeline constants (MUST match training config) ----
-constexpr size_t kWindowSize = 50;          // 1.0 s @ 50 Hz
-constexpr float kSampleIntervalMs = 20.0f;  // 50 Hz sampling cadence
+constexpr size_t kWindowSize = 1600;        // 4.0 s @ 400 Hz (pilot v3)
+constexpr uint32_t kSampleIntervalUs = 2500; // 400 Hz sampling cadence
+constexpr float kSampleIntervalMs = 20.0f;  // legacy guided-capture cadence
 constexpr size_t kChannels = 4;             // ax, ay, az + mag
-constexpr float kZcEps = 1e-6f;             // zero-crossing deadband
 // Pre-roll buffer: keep this many samples before the motion trigger so the
 // actual triggering gesture is guaranteed to be inside the captured window.
 constexpr size_t kPreRollCount = 10;        // 200 ms @ 50 Hz
+constexpr size_t kInferenceStride = 100;    // 0.25 s between predictions
+constexpr size_t kPeakRefractorySamples = 8; // stat_v2 training parity
+constexpr float kPeakThresholdFloorG = 0.05f;
 
 struct Sample {
     float ax, ay, az;
@@ -38,8 +57,33 @@ struct Sample {
 Sample gWindow[kWindowSize];
 size_t gWindowCount = 0;
 bool gWindowReady = false;
-unsigned long lastSampleMs = 0;
+uint32_t lastSampleUs = 0;
 unsigned long lastStatusMs = 0;
+unsigned long gLastCaptureSampleMs = 0;
+uint32_t gSensorReadErrors = 0;
+uint32_t gInferenceCount = 0;
+uint32_t gInferenceTotalUs = 0;
+uint32_t gInferenceMaxUs = 0;
+
+// ---- High-rate tap oscilloscope diagnostic ----
+// This experiment is intentionally separate from the model contract. It
+// captures only the physical Y-axis response at 400 Hz, buffers it in RAM, and
+// emits the samples afterward so Serial printing cannot disturb acquisition.
+constexpr size_t kTapScopeSampleCount = 1600;      // 4.0 s at 400 Hz
+constexpr uint32_t kTapScopeIntervalUs = 2500;     // 2.5 ms
+constexpr uint32_t kTapScopeCueTimeUs = 500000;    // 0.5 s pre-cue baseline
+constexpr unsigned long kTapScopeCountdownMs = 3000;
+float gTapScopeX[kTapScopeSampleCount];
+float gTapScopeY[kTapScopeSampleCount];
+float gTapScopeZ[kTapScopeSampleCount];
+uint32_t gTapScopeTimeUs[kTapScopeSampleCount];
+size_t gTapScopeCount = 0;
+uint32_t gTapScopeStartedUs = 0;
+uint32_t gTapScopeNextUs = 0;
+unsigned long gTapScopeArmMs = 0;
+enum class TapScopeState : uint8_t { IDLE, COUNTDOWN, CAPTURING };
+TapScopeState gTapScopeState = TapScopeState::IDLE;
+bool gTapScopeCueShown = false;
 
 // Pre-roll ring buffer: filled continuously in BASE_WAIT_MOTION so that when
 // motion is detected, the samples just before the trigger are available to
@@ -53,14 +97,23 @@ unsigned long lastPreRollSampleMs = 0;
 // Requirement: LED stays OFF until a gesture is registered.
 struct LedFlash {
     uint8_t r, g, b;
+    uint8_t alternateR, alternateG, alternateB;
     uint16_t onMs, offMs;
     uint8_t times;
     uint8_t flashed;
     unsigned long nextMs;
     bool isOn;
     bool active;
+    bool alternating;
 };
-LedFlash gLedFlash = {0, 0, 0, 0, 0, 0, 0, 0, false, false};
+LedFlash gLedFlash = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, false, false};
+
+// Decision history implements the configuration exported with the model.
+// A gesture becomes an event only after N consecutive confident predictions.
+int gDecisionHistory[tinyml_model::kDecisionSmoothingWindows] = {0};
+float gDecisionScores[tinyml_model::kDecisionSmoothingWindows] = {0.0f};
+size_t gDecisionHistoryCount = 0;
+unsigned long gLastGestureEventMs = 0;
 
 void ledSolid(uint8_t r, uint8_t g, uint8_t b) {
     gLedFlash.active = false;
@@ -76,13 +129,44 @@ void ledOff() {
 
 void flashStart(uint8_t r, uint8_t g, uint8_t b, uint16_t onMs, uint16_t offMs, uint8_t times) {
     gLedFlash.r = r; gLedFlash.g = g; gLedFlash.b = b;
+    gLedFlash.alternateR = r; gLedFlash.alternateG = g; gLedFlash.alternateB = b;
     gLedFlash.onMs = onMs; gLedFlash.offMs = offMs;
     gLedFlash.times = times;
     gLedFlash.flashed = 0;
     gLedFlash.isOn = false;
     gLedFlash.active = true;
+    gLedFlash.alternating = false;
     gLedFlash.nextMs = millis();
     RGB.control(true);
+}
+
+void flashStartAlternating(
+    uint8_t r1, uint8_t g1, uint8_t b1,
+    uint8_t r2, uint8_t g2, uint8_t b2,
+    uint16_t onMs, uint16_t offMs, uint8_t times
+) {
+    flashStart(r1, g1, b1, onMs, offMs, times);
+    gLedFlash.alternateR = r2;
+    gLedFlash.alternateG = g2;
+    gLedFlash.alternateB = b2;
+    gLedFlash.alternating = true;
+}
+
+const char* operatingModeName(OperatingMode mode) {
+    switch (mode) {
+    case OperatingMode::DEBUG: return "DEBUG";
+    case OperatingMode::TRAINING: return "TRAINING";
+    case OperatingMode::LIVE: return "LIVE";
+    }
+    return "UNKNOWN";
+}
+
+void resetInferenceState() {
+    gWindowCount = 0;
+    gWindowReady = false;
+    gDecisionHistoryCount = 0;
+    gLastGestureEventMs = 0;
+    ledOff();
 }
 
 // Non-blocking flash step. Returns true while the pattern is active.
@@ -91,7 +175,12 @@ bool flashStep() {
     const unsigned long now = millis();
     if (!gLedFlash.isOn) {
         if (now >= gLedFlash.nextMs) {
-            RGB.color(gLedFlash.r, gLedFlash.g, gLedFlash.b);
+            const bool useAlternate = gLedFlash.alternating && (gLedFlash.flashed % 2 == 1);
+            RGB.color(
+                useAlternate ? gLedFlash.alternateR : gLedFlash.r,
+                useAlternate ? gLedFlash.alternateG : gLedFlash.g,
+                useAlternate ? gLedFlash.alternateB : gLedFlash.b
+            );
             gLedFlash.isOn = true;
             gLedFlash.flashed++;
             gLedFlash.nextMs = now + gLedFlash.onMs;
@@ -138,6 +227,7 @@ const char* const kGestureLabels[4] = {"tap1", "tap2", "tap3", "shake_lr"};
 constexpr size_t kGestureCount = 4;
 constexpr size_t kGestureTrials = 5;        // trials per gesture
 constexpr unsigned long kStationaryMs = 10000;   // 10 s stationary baseline
+constexpr unsigned long kIdleSettleMs = 2000;    // hands off before idle capture
 constexpr unsigned long kCuePauseMs = 600;       // pause between cue and motion wait
 constexpr unsigned long kConfirmTimeoutMs = 20000; // max wait for OK/BAD
 constexpr unsigned long kFailCooldownMs = 1500;   // cooldown after BAD
@@ -188,7 +278,12 @@ void printModelMetadata() {
     Serial.println("=======================================");
 }
 
-// stat_v1 feature extraction (MUST mirror train.py channel_features)
+// stat_v2 feature extraction (MUST mirror train.py channel_features).
+// Feature order per channel:
+//   std, min, max, range, energy, peak_count, max_abs_diff
+// Peak count and max_abs_diff replace the redundant post-centering mean and
+// broad zero-crossing count. They preserve temporal evidence needed to tell
+// one, two, and three taps apart while keeping the model input at 28 values.
 void channelFeatures(const float* x, size_t n, float* out7) {
     float sum = 0.0f;
     for (size_t i = 0; i < n; ++i) sum += x[i];
@@ -212,20 +307,41 @@ void channelFeatures(const float* x, size_t n, float* out7) {
     for (size_t i = 0; i < n; ++i) esum += x[i] * x[i];
     const float energy = esum / (float)n;
 
-    int zc = 0;
-    for (size_t i = 1; i < n; ++i) {
-        float a = fabsf(x[i - 1]) < kZcEps ? 0.0f : x[i - 1];
-        float b = fabsf(x[i]) < kZcEps ? 0.0f : x[i];
-        if ((a < 0.0f) != (b < 0.0f)) ++zc;
+    float maxAbsDiff = 0.0f;
+    for (size_t i = 0; i < n; ++i) {
+        if (i > 0) {
+            const float d = fabsf(x[i] - x[i - 1]);
+            if (d > maxAbsDiff) maxAbsDiff = d;
+        }
     }
 
-    out7[0] = mean;
-    out7[1] = std;
-    out7[2] = mn;
-    out7[3] = mx;
-    out7[4] = rng;
-    out7[5] = energy;
-    out7[6] = (float)zc;
+    // A fixed physical threshold performed better than a fraction of the
+    // strongest impulse: with an adaptive fraction, one unusually strong first
+    // tap could hide the second/third valid tap in the same window.
+    const float peakThreshold = kPeakThresholdFloorG;
+    size_t peakCount = 0;
+    size_t lastPeak = 0;
+    bool havePeak = false;
+    for (size_t i = 1; i + 1 < n; ++i) {
+        const float prev = fabsf(x[i - 1]);
+        const float current = fabsf(x[i]);
+        const float next = fabsf(x[i + 1]);
+        const bool localMaximum = current >= prev && current > next;
+        const bool outsideRefractory = !havePeak || i - lastPeak >= kPeakRefractorySamples;
+        if (current >= peakThreshold && localMaximum && outsideRefractory) {
+            peakCount++;
+            lastPeak = i;
+            havePeak = true;
+        }
+    }
+
+    out7[0] = std;
+    out7[1] = mn;
+    out7[2] = mx;
+    out7[3] = rng;
+    out7[4] = energy;
+    out7[5] = (float)peakCount;
+    out7[6] = maxAbsDiff;
 }
 
 void extractFeatures(float* features) {
@@ -252,13 +368,78 @@ void extractFeatures(float* features) {
     }
 }
 
-// Map a predicted class index to a feedback LED color.
+// Count separated impact envelopes in the same way as the automatic capture
+// validator. This is a decision guard, not a replacement classifier: the MLP
+// still separates idle/tap/shake, while physics resolves adjacent tap counts.
+int countImpactEvents() {
+    constexpr size_t kBaselineSamples = 200;       // first 0.5 s at 400 Hz
+    constexpr float kImpactThresholdG = 0.35f;
+    constexpr size_t kSeparationSamples = 60;      // 150 ms below threshold
+    float bx = 0.0f, by = 0.0f, bz = 0.0f;
+    for (size_t i = 0; i < kBaselineSamples; ++i) {
+        bx += gWindow[i].ax; by += gWindow[i].ay; bz += gWindow[i].az;
+    }
+    bx /= kBaselineSamples; by /= kBaselineSamples; bz /= kBaselineSamples;
+
+    int events = 0;
+    size_t lastActive = 0;
+    bool haveActive = false;
+    for (size_t i = 0; i < kWindowSize; ++i) {
+        const float dx = gWindow[i].ax - bx;
+        const float dy = gWindow[i].ay - by;
+        const float dz = gWindow[i].az - bz;
+        if (sqrtf(dx * dx + dy * dy + dz * dz) < kImpactThresholdG) continue;
+        if (!haveActive || i - lastActive > kSeparationSamples) events++;
+        lastActive = i;
+        haveActive = true;
+    }
+    return events;
+}
+
+// LIVE LED contract. Intervals are start-to-start: a 250 ms pulse followed by
+// 250 ms off gives tap2 a 0.5 s cadence; 165+165 ms approximates 0.33 s.
 void flashClassFeedback(int classIdx) {
-    if (classIdx == tinyml_model::CLASS_TAP1) flashStart(0, 0, 255, 150, 150, 1);       // blue x1
-    else if (classIdx == tinyml_model::CLASS_TAP2) flashStart(0, 0, 255, 150, 150, 2);  // blue x2
-    else if (classIdx == tinyml_model::CLASS_TAP3) flashStart(0, 0, 255, 150, 150, 3);  // blue x3
-    else if (classIdx == tinyml_model::CLASS_SHAKE_LR) flashStart(255, 100, 0, 150, 150, 4); // orange rapid
+    if (classIdx == tinyml_model::CLASS_TAP1) flashStart(0, 0, 255, 1000, 0, 1);
+    else if (classIdx == tinyml_model::CLASS_TAP2) flashStart(0, 0, 255, 250, 250, 2);
+    else if (classIdx == tinyml_model::CLASS_TAP3) flashStart(255, 0, 0, 165, 165, 3);
+    else if (classIdx == tinyml_model::CLASS_SHAKE_LR) {
+        flashStartAlternating(255, 0, 0, 0, 0, 255, 500, 500, 4);
+    }
     else ledOff();
+}
+
+// Convert raw classifier output into a stable application event.  Classification
+// and action are intentionally separate: softmax answers "what does this window
+// resemble?", while this function answers "is it safe to act now?".
+int updateDecision(int classIdx, float score, unsigned long nowMs) {
+    const bool confident = score >= tinyml_model::kDecisionConfidenceThreshold;
+    const int candidate = confident ? classIdx : tinyml_model::CLASS_IDLE;
+
+    if (gDecisionHistoryCount < tinyml_model::kDecisionSmoothingWindows) {
+        gDecisionHistory[gDecisionHistoryCount] = candidate;
+        gDecisionScores[gDecisionHistoryCount] = score;
+        gDecisionHistoryCount++;
+    } else {
+        for (size_t i = 1; i < tinyml_model::kDecisionSmoothingWindows; ++i) {
+            gDecisionHistory[i - 1] = gDecisionHistory[i];
+            gDecisionScores[i - 1] = gDecisionScores[i];
+        }
+        const size_t last = tinyml_model::kDecisionSmoothingWindows - 1;
+        gDecisionHistory[last] = candidate;
+        gDecisionScores[last] = score;
+    }
+
+    if (gDecisionHistoryCount < tinyml_model::kDecisionSmoothingWindows) return -1;
+    const int stableClass = gDecisionHistory[0];
+    if (stableClass == tinyml_model::CLASS_IDLE) return -1;
+    for (size_t i = 1; i < tinyml_model::kDecisionSmoothingWindows; ++i) {
+        if (gDecisionHistory[i] != stableClass) return -1;
+    }
+    if (nowMs - gLastGestureEventMs < tinyml_model::kDecisionDebounceMs) return -1;
+
+    gLastGestureEventMs = nowMs;
+    gDecisionHistoryCount = 0; // a new event requires a fresh stable sequence
+    return stableClass;
 }
 
 void runInference() {
@@ -267,12 +448,17 @@ void runInference() {
 
     extractFeatures(features);
 
+    const unsigned long inferenceStartUs = micros();
     tinyml_model::model_infer(
         features,
         tinyml_model::kFeatureCount,
         scores,
         tinyml_model::kNumClasses
     );
+    const uint32_t inferenceUs = (uint32_t)(micros() - inferenceStartUs);
+    gInferenceCount++;
+    gInferenceTotalUs += inferenceUs;
+    if (inferenceUs > gInferenceMaxUs) gInferenceMaxUs = inferenceUs;
 
     int bestIdx = 0;
     float bestScore = scores[0];
@@ -283,21 +469,35 @@ void runInference() {
         }
     }
 
-    if (gEchoInference) {
+    const int impactEvents = countImpactEvents();
+    const bool learnedTap = bestIdx == tinyml_model::CLASS_TAP1 ||
+                            bestIdx == tinyml_model::CLASS_TAP2 ||
+                            bestIdx == tinyml_model::CLASS_TAP3;
+    if (learnedTap && impactEvents >= 1 && impactEvents <= 3) {
+        bestIdx = impactEvents == 1 ? tinyml_model::CLASS_TAP1 :
+                  impactEvents == 2 ? tinyml_model::CLASS_TAP2 :
+                                      tinyml_model::CLASS_TAP3;
+    }
+
+    if (gOperatingMode == OperatingMode::DEBUG && gEchoInference) {
         Serial.print("Predicted class: ");
         Serial.print(tinyml_model::kClassNames[bestIdx]);
         Serial.print(" | command: ");
         Serial.print(tinyml_model::kCommandMap[bestIdx]);
         Serial.print(" | score: ");
         Serial.printlnf("%.3f", bestScore);
+        Serial.printlnf("DEBUG,inference_us=%lu", (unsigned long)inferenceUs);
     }
 
-    // LED stays off until a confident, non-idle gesture is registered.
-    if (bestScore >= tinyml_model::kDecisionConfidenceThreshold &&
-        bestIdx != tinyml_model::CLASS_IDLE) {
-        flashClassFeedback(bestIdx);
-    } else {
-        ledOff();
+    const int eventClass = updateDecision(bestIdx, bestScore, millis());
+    if (eventClass >= 0 && gOperatingMode == OperatingMode::LIVE) {
+        Serial.print("EVENT,class=");
+        Serial.print(tinyml_model::kClassNames[eventClass]);
+        Serial.print(",command=");
+        Serial.print(tinyml_model::kCommandMap[eventClass]);
+        Serial.print(",score=");
+        Serial.printlnf("%.3f", bestScore);
+        flashClassFeedback(eventClass);
     }
 }
 
@@ -337,6 +537,7 @@ bool readRegisters(uint8_t addr, uint8_t startReg, uint8_t* out, size_t len) {
 }
 
 bool initAdxlMeasurementMode(uint8_t addr) {
+    if (!writeRegister8(addr, kAdxlRegBwRate, 0x0C)) return false;    // 400 Hz LIVE/model ODR
     if (!writeRegister8(addr, kAdxlRegDataFormat, 0x0B)) return false; // FULL_RES +-16g
     if (!writeRegister8(addr, kAdxlRegPowerCtl, 0x08)) return false;   // MEASURE
     return true;
@@ -370,6 +571,93 @@ void emitSampleValues(float ax, float ay, float az) {
     Serial.printlnf("%.6f,ay=%.6f,az=%.6f", ax, ay, az);
 }
 
+void startTapScope() {
+    if (!gAdxlReady) {
+        Serial.println("ERROR,message=TAP_SCOPE requires a working ADXL343");
+        return;
+    }
+    if (gOperatingMode != OperatingMode::DEBUG) {
+        Serial.println("ERROR,message=TAP_SCOPE is available only in DEBUG mode");
+        return;
+    }
+    resetInferenceState();
+    gTapScopeCount = 0;
+    gTapScopeCueShown = false;
+    gTapScopeArmMs = millis();
+    gTapScopeState = TapScopeState::COUNTDOWN;
+    ledSolid(255, 180, 0); // amber: prepare to tap
+    Serial.printlnf("SCOPE,phase=countdown,duration_ms=%lu",
+                    kTapScopeCountdownMs);
+    Serial.println("SCOPE,message=tap once immediately after GO");
+}
+
+// Returns true while the scope experiment owns sensor acquisition.
+bool runTapScope() {
+    if (gTapScopeState == TapScopeState::IDLE) return false;
+
+    if (gTapScopeState == TapScopeState::COUNTDOWN) {
+        if (millis() - gTapScopeArmMs < kTapScopeCountdownMs) return true;
+        // Fast-mode I2C is required for reliable six-byte XYZ reads at 400 Hz.
+        Wire.setSpeed(CLOCK_SPEED_400KHZ);
+        if (!writeRegister8(gAdxlAddr, kAdxlRegBwRate, 0x0C)) { // 400 Hz ODR
+            Serial.println("ERROR,message=failed to configure ADXL343 for 400 Hz");
+            gTapScopeState = TapScopeState::IDLE;
+            return false;
+        }
+        gTapScopeStartedUs = micros();
+        gTapScopeNextUs = gTapScopeStartedUs;
+        gTapScopeState = TapScopeState::CAPTURING;
+        // Keep the LED yellow for the first 500 ms. This produces a measured
+        // pre-cue baseline and removes ambiguity about when green became visible.
+        Serial.println("SCOPE,phase=precue,rate_hz=400,axes=xyz,samples=1600,cue_time_us=500000");
+        return true;
+    }
+
+    const uint32_t nowUs = micros();
+    if (!gTapScopeCueShown && nowUs - gTapScopeStartedUs >= kTapScopeCueTimeUs) {
+        // Ensure the desktop receives GO before the visible cue. Without this
+        // flush, USB CDC could retain the short line until the post-capture
+        // data dump, making the GUI turn green seconds after the firmware cue.
+        Serial.println("SCOPE,phase=go,cue_time_us=500000");
+        Serial.flush();
+        gTapScopeCueShown = true;
+        ledSolid(0, 255, 0); // green: tap now
+        // Do not catch up missed deadlines after the synchronous cue flush.
+        gTapScopeNextUs = micros();
+        return true;
+    }
+    if ((int32_t)(nowUs - gTapScopeNextUs) < 0) return true;
+
+    float ax = 0.0f, ay = 0.0f, az = 0.0f;
+    if (readSampleG(ax, ay, az)) {
+        gTapScopeTimeUs[gTapScopeCount] = nowUs - gTapScopeStartedUs;
+        gTapScopeX[gTapScopeCount] = ax;
+        gTapScopeY[gTapScopeCount] = ay;
+        gTapScopeZ[gTapScopeCount] = az;
+        ++gTapScopeCount;
+    } else {
+        ++gSensorReadErrors;
+    }
+    // Advance from the prior deadline rather than from now, avoiding gradual
+    // scheduler drift over the 1.5-second recording.
+    gTapScopeNextUs += kTapScopeIntervalUs;
+
+    if (gTapScopeCount < kTapScopeSampleCount) return true;
+
+    writeRegister8(gAdxlAddr, kAdxlRegBwRate, 0x0C); // restore 400 Hz model ODR
+    Wire.setSpeed(CLOCK_SPEED_400KHZ);
+    Serial.println("SCOPE_DATA,time_us,x_g,y_g,z_g");
+    for (size_t i = 0; i < gTapScopeCount; ++i) {
+        Serial.printlnf("SCOPE_DATA,%lu,%.6f,%.6f,%.6f",
+                        (unsigned long)gTapScopeTimeUs[i], gTapScopeX[i],
+                        gTapScopeY[i], gTapScopeZ[i]);
+    }
+    Serial.printlnf("SCOPE,phase=complete,samples=%d", (int)gTapScopeCount);
+    ledOff();
+    gTapScopeState = TapScopeState::IDLE;
+    return false;
+}
+
 // Read one sample in g and emit a SAMPLE protocol line. Returns true on success.
 bool emitSample() {
     int16_t rawX = 0, rawY = 0, rawZ = 0;
@@ -392,6 +680,7 @@ float readMagnitude() {
 
 // ---- Baseline capture ----
 void startBaseline() {
+    gOperatingMode = OperatingMode::TRAINING;
     gBasePhase = BASE_STATIONARY;
     gGestureIdx = 0;
     gTrial = 0;
@@ -404,7 +693,12 @@ void startBaseline() {
     gWindowCount = 0;
     gWindowReady = false;
     gPreRollCount = 0;
+    gLastCaptureSampleMs = 0;
     Serial.println("INFO,message=baseline started: hold still for 10 s (yellow flashing)");
+    // Frame stationary data exactly like every other labeled trial.  Host tools
+    // ignore unframed SAMPLE lines, which is why the earlier implementation
+    // announced idle success without ever writing an idle CSV.
+    Serial.println("PROMPT,label=idle,trial=1");
     flashStart(255, 255, 0, 500, 500, 20); // yellow flashing ~10 s
 }
 
@@ -420,9 +714,8 @@ void runBaseline() {
     switch (gBasePhase) {
     case BASE_STATIONARY: {
         if (now - gPhaseMs >= kStationaryMs) {
-            // Finalize stationary statistics -> idle trial complete
+            // Finalize the noise estimate after the complete stationary period.
             ledSolid(0, 255, 0); // green
-            Serial.println("RESULT,status=ok,label=idle,trial=1");
             const double variance = gMagN > 0 ? gMagM2 / (double)gMagN : 0.0;
             const double std = sqrt(variance);
             float thr = (float)(kMotionThresholdMult * std);
@@ -432,14 +725,30 @@ void runBaseline() {
                             (float)gMagMean, (float)std, gMotionThreshold);
             gBasePhase = BASE_STATIONARY_DONE;
             gPhaseMs = now;
-        } else if (gAdxlReady && (now - gPhaseMs) % (unsigned long)kSampleIntervalMs < 5) {
-            // Collect one stationary sample per 20ms tick
-            if (emitSample()) {
-                float m = readMagnitude();
-                gMagN++;
-                double delta = m - gMagMean;
-                gMagMean += delta / (double)gMagN;
-                gMagM2 += delta * (m - (float)gMagMean);
+        } else if (gAdxlReady && now - gLastCaptureSampleMs >= (unsigned long)kSampleIntervalMs) {
+            gLastCaptureSampleMs = now;
+            Sample sample;
+            if (readSampleG(sample.ax, sample.ay, sample.az)) {
+                // Use the same physical read for CSV output and noise statistics.
+                // Ignore the first two seconds so touching the board or starting
+                // the host command cannot contaminate the idle label.
+                const bool settled = now - gPhaseMs >= kIdleSettleMs;
+                if (settled && gSampleCount < kWindowSize) {
+                    emitSampleValues(sample.ax, sample.ay, sample.az);
+                    gSampleCount++;
+                    if (gSampleCount == kWindowSize) {
+                        Serial.println("RESULT,status=ok,label=idle,trial=1");
+                    }
+                }
+                if (settled) {
+                    const float m = sqrtf(sample.ax * sample.ax + sample.ay * sample.ay + sample.az * sample.az);
+                    gMagN++;
+                    double delta = m - gMagMean;
+                    gMagMean += delta / (double)gMagN;
+                    gMagM2 += delta * (m - (float)gMagMean);
+                }
+            } else {
+                gSensorReadErrors++;
             }
         }
         break;
@@ -506,6 +815,8 @@ void runBaseline() {
                     gPhaseMs = now;
                     ledSolid(180, 180, 180); // dim white while capturing
                 }
+            } else {
+                gSensorReadErrors++;
             }
         }
         break;
@@ -519,7 +830,11 @@ void runBaseline() {
                 if (gWindowCount < kWindowSize) {
                     gWindow[gWindowCount++] = {ax, ay, az};
                 }
-                emitSample();
+                // Emit the exact sample stored in gWindow; never perform a
+                // second sensor read for the same logical sampling tick.
+                emitSampleValues(ax, ay, az);
+            } else {
+                gSensorReadErrors++;
             }
             if (gWindowCount >= kWindowSize) {
                 ledOff();
@@ -591,11 +906,76 @@ void runBaseline() {
 }
 
 // ---- Serial command / confirmation handling ----
+void printModeStatus() {
+    Serial.print("MODE,current=");
+    Serial.println(operatingModeName(gOperatingMode));
+}
+
+void setOperatingMode(OperatingMode nextMode) {
+    if (gOperatingMode == nextMode &&
+        !(nextMode == OperatingMode::TRAINING && gBasePhase == BASE_IDLE)) {
+        printModeStatus();
+        return;
+    }
+
+    // Every transition cancels mode-specific work.  This prevents a partially
+    // filled inference window or capture timer leaking into the next mode.
+    gBasePhase = BASE_IDLE;
+    resetInferenceState();
+    gOperatingMode = nextMode;
+    gEchoInference = nextMode == OperatingMode::DEBUG;
+
+    Serial.print("INFO,message=mode changed to ");
+    Serial.println(operatingModeName(nextMode));
+    printModeStatus();
+
+    if (nextMode == OperatingMode::TRAINING) {
+        startBaseline();
+    }
+}
+
+void printCommandHelp() {
+    Serial.println("Commands:");
+    Serial.println("  MODE DEBUG     - verbose inference diagnostics, no gesture LED actions");
+    Serial.println("  MODE TRAINING  - guided labeled data capture");
+    Serial.println("  MODE LIVE      - quiet inference with EVENT and LED feedback");
+    Serial.println("  MODE?          - print current operating mode");
+    Serial.println("  START_BASELINE / STOP_BASELINE / OK / BAD - training controls");
+    Serial.println("  ECHO_ON / ECHO_OFF - DEBUG serial verbosity");
+    Serial.println("  TAP_SCOPE       - capture 4.0 s of XYZ acceleration at 400 Hz (DEBUG only)");
+    Serial.println("  STATUS / HELP");
+}
+
 void handleSerialCommand() {
     if (Serial.available() <= 0) return;
     String cmd = Serial.readStringUntil('\n');
     cmd.trim();
-    if (cmd.equalsIgnoreCase("START_BASELINE")) {
+    if (cmd.equalsIgnoreCase("MODE DEBUG")) {
+        setOperatingMode(OperatingMode::DEBUG);
+    } else if (cmd.equalsIgnoreCase("MODE TRAINING")) {
+        setOperatingMode(OperatingMode::TRAINING);
+    } else if (cmd.equalsIgnoreCase("MODE LIVE")) {
+        if (kModelReadyForLive) {
+            setOperatingMode(OperatingMode::LIVE);
+        } else {
+            Serial.println("ERROR,message=LIVE locked: collect/train/export dataset v2 and rebuild firmware");
+        }
+    } else if (cmd.equalsIgnoreCase("MODE?")) {
+        printModeStatus();
+    } else if (cmd.equalsIgnoreCase("HELP")) {
+        printCommandHelp();
+    } else if (cmd.equalsIgnoreCase("TAP_SCOPE")) {
+        startTapScope();
+    } else if (cmd.equalsIgnoreCase("STATUS")) {
+        const uint32_t meanUs = gInferenceCount > 0 ? gInferenceTotalUs / gInferenceCount : 0;
+        Serial.printlnf(
+            "STATUS,mode=%s,sensor=%s,window=%d,inferences=%lu,mean_us=%lu,max_us=%lu,read_errors=%lu",
+            operatingModeName(gOperatingMode), gAdxlReady ? "ok" : "error",
+            (int)gWindowCount, (unsigned long)gInferenceCount,
+            (unsigned long)meanUs, (unsigned long)gInferenceMaxUs,
+            (unsigned long)gSensorReadErrors
+        );
+    } else if (cmd.equalsIgnoreCase("START_BASELINE")) {
         startBaseline();
     } else if (cmd.equalsIgnoreCase("STOP_BASELINE")) {
         gBasePhase = BASE_IDLE;
@@ -636,7 +1016,7 @@ void printAdxlDiagnostics() {
     Serial.println("Expected wiring: D0=SDA, D1=SCL, 3V3, GND");
 
     Wire.begin();
-    Wire.setSpeed(CLOCK_SPEED_100KHZ);
+    Wire.setSpeed(CLOCK_SPEED_400KHZ);
 
     const bool primarySeen = probeI2cAddress(kAdxlPrimaryAddr);
     const bool altSeen = probeI2cAddress(kAdxlAltAddr);
@@ -703,43 +1083,70 @@ void setup() {
     tinyml_model::model_init();
     printModelMetadata();
 
-    Serial.println("Commands: START_BASELINE / STOP_BASELINE / OK / BAD / ECHO_ON / ECHO_OFF");
+    Serial.println("Default mode: DEBUG (safe diagnostics; no gesture actions)");
+    printCommandHelp();
+    printModeStatus();
 }
 
 void loop() {
     handleSerialCommand();
 
-    if (gBasePhase != BASE_IDLE) {
+    // A scope capture temporarily owns the sensor and suspends the ordinary
+    // DEBUG inference sampler. Samples are printed only after capture ends.
+    if (runTapScope()) return;
+
+    if (gOperatingMode == OperatingMode::TRAINING) {
         runBaseline();
         return;
     }
 
-    // Normal inference mode (LED off until a gesture is registered).
-    if (gAdxlReady && (millis() - lastSampleMs >= (unsigned long)kSampleIntervalMs)) {
-        lastSampleMs = millis();
-        int16_t rawX = 0, rawY = 0, rawZ = 0;
-        if (readAdxlRawXYZ(gAdxlAddr, rawX, rawY, rawZ)) {
-            gWindow[gWindowCount].ax = rawX * kAdxlScaleGPerLsb;
-            gWindow[gWindowCount].ay = rawY * kAdxlScaleGPerLsb;
-            gWindow[gWindowCount].az = rawZ * kAdxlScaleGPerLsb;
+    // LED animation is advanced independently of inference; no delay() calls
+    // are needed, so serial handling and 400 Hz acquisition remain responsive.
+    flashStep();
+
+    // DEBUG and LIVE share the exact same sensor/model path.  They differ only
+    // in presentation: DEBUG prints diagnostics; LIVE emits stable events.
+    if (!kModelReadyForLive) {
+        if (gOperatingMode == OperatingMode::DEBUG && gEchoInference &&
+            millis() - lastStatusMs >= kStatusIntervalMs) {
+            lastStatusMs = millis();
+            Serial.printlnf("STATUS,mode=DEBUG,model=stale_v1,sensor=%s,read_errors=%lu",
+                            gAdxlReady ? "ok" : "error", (unsigned long)gSensorReadErrors);
+        }
+        return;
+    }
+    const uint32_t nowUs = micros();
+    if (gAdxlReady && (uint32_t)(nowUs - lastSampleUs) >= kSampleIntervalUs) {
+        lastSampleUs = nowUs;
+        Sample sample;
+        if (readSampleG(sample.ax, sample.ay, sample.az)) {
+            gWindow[gWindowCount] = sample;
             gWindowCount++;
             if (gWindowCount >= kWindowSize) {
-                gWindowCount = 0;
                 gWindowReady = true;
             }
+        } else {
+            gSensorReadErrors++;
         }
     }
 
     if (gWindowReady) {
         gWindowReady = false;
         runInference();
+        // Retain the overlapping 3.75 s and acquire 0.25 s of new samples.
+        for (size_t i = kInferenceStride; i < kWindowSize; ++i) {
+            gWindow[i - kInferenceStride] = gWindow[i];
+        }
+        gWindowCount = kWindowSize - kInferenceStride;
     }
 
-    if (gEchoInference && millis() - lastStatusMs >= kStatusIntervalMs) {
+    if (gOperatingMode == OperatingMode::DEBUG && gEchoInference &&
+        millis() - lastStatusMs >= kStatusIntervalMs) {
         lastStatusMs = millis();
         Serial.printlnf(
-            "STATUS window_filled=%d feature_count=%d",
-            (int)gWindowCount, (int)tinyml_model::kFeatureCount
+            "STATUS,mode=DEBUG,window=%d,features=%d,read_errors=%lu",
+            (int)gWindowCount, (int)tinyml_model::kFeatureCount,
+            (unsigned long)gSensorReadErrors
         );
     }
 }

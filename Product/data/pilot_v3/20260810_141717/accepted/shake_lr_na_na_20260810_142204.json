@@ -1,0 +1,17 @@
+{
+  "session_id": "20260810_141717",
+  "label": "shake_lr",
+  "pace": "na",
+  "force": "na",
+  "operator_accepted": true,
+  "samples": 1600.0,
+  "median_interval_us": 2498.0,
+  "peak_magnitude_g": 11.059736629436525,
+  "peak_time_ms": 2840.233,
+  "cue_latency_ms": 2340.233,
+  "peak_axis_g": 10.32135,
+  "dynamic_rms_g": 0.686905172945109,
+  "active_span_ms": 2841.408,
+  "event_count": 4.0,
+  "clipped": 0.0
+}

@@ -12,7 +12,7 @@ constexpr std::size_t kNumClasses = 5;
 constexpr std::size_t kFeatureCount = 28;
 
 constexpr float kDecisionConfidenceThreshold = 0.750000f;
-constexpr std::uint32_t kDecisionDebounceMs = 300u;
+constexpr std::uint32_t kDecisionDebounceMs = 4000u;
 constexpr std::size_t kDecisionSmoothingWindows = 3u;
 
 // Neural network topology (fully connected, ReLU hidden, softmax output).

@@ -5,7 +5,7 @@ This is a foundation script, intentionally lightweight:
 - Loads config
 - Loads CSV data
 - Builds sliding windows
-- Extracts stat_v1 features
+- Extracts stat_v2 features
 - Trains a compact baseline model (MLP by default)
 - Prints core metrics and confusion matrix
 
@@ -14,7 +14,7 @@ Adjust paths and data format in config.yaml as needed.
 
 from __future__ import annotations
 
-import math
+import argparse
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -49,6 +49,11 @@ def load_raw_data(raw_dir: Path, file_glob: str) -> pd.DataFrame:
     chunks = []
     for fp in files:
         df = pd.read_csv(fp)
+        # High-rate v3 captures use explicit unit-bearing column names.  Map
+        # them onto the stable training contract at the ingestion boundary so
+        # feature extraction and export do not acquire a second code path.
+        aliases = {"time_us": "timestamp", "x_g": "ax", "y_g": "ay", "z_g": "az"}
+        df = df.rename(columns={old: new for old, new in aliases.items() if old in df.columns})
         df["__source_file"] = fp.name
         chunks.append(df)
     return pd.concat(chunks, ignore_index=True)
@@ -83,22 +88,35 @@ def sliding_windows(
     return windows
 
 
-def zero_crossings(x: np.ndarray, eps: float = 1e-6) -> int:
-    x2 = x.copy()
-    x2[np.abs(x2) < eps] = 0.0
-    s = np.sign(x2)
-    return int(np.sum((s[:-1] * s[1:]) < 0))
+def peak_count(x: np.ndarray) -> int:
+    """Count prominent local peaks with a five-sample refractory interval."""
+    amplitude = np.abs(x)
+    if len(amplitude) < 3:
+        return 0
+    threshold = 0.05
+    count = 0
+    last_peak = -8
+    for i in range(1, len(amplitude) - 1):
+        if (
+            amplitude[i] >= threshold
+            and amplitude[i] >= amplitude[i - 1]
+            and amplitude[i] > amplitude[i + 1]
+            and i - last_peak >= 8
+        ):
+            count += 1
+            last_peak = i
+    return count
 
 
 def channel_features(x: np.ndarray) -> List[float]:
-    mean = float(np.mean(x))
+    peaks = float(peak_count(x))
     std = float(np.std(x))
     mn = float(np.min(x))
     mx = float(np.max(x))
     rng = mx - mn
     energy = float(np.mean(x ** 2))
-    zc = float(zero_crossings(x))
-    return [mean, std, mn, mx, rng, energy, zc]
+    max_abs_diff = float(np.max(np.abs(np.diff(x)))) if len(x) >= 2 else 0.0
+    return [std, mn, mx, rng, energy, peaks, max_abs_diff]
 
 
 def extract_features_for_window(window_df: pd.DataFrame, use_mag: bool) -> List[float]:
@@ -144,6 +162,21 @@ def build_dataset(cfg: Dict, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray]:
     return X, y
 
 
+def validate_class_coverage(cfg: Dict, y: np.ndarray) -> None:
+    """Fail when the dataset cannot train the configured deployment contract."""
+    configured = {str(label) for label in cfg["labels"]["classes"]}
+    observed = {str(label) for label in y}
+    missing = sorted(configured - observed)
+    unexpected = sorted(observed - configured)
+    if missing or unexpected:
+        details = []
+        if missing:
+            details.append(f"missing configured classes: {missing}")
+        if unexpected:
+            details.append(f"unexpected dataset classes: {unexpected}")
+        raise ValueError("Class coverage mismatch (" + "; ".join(details) + ").")
+
+
 def train_model(cfg: Dict, X_train: np.ndarray, y_train: np.ndarray):
     fam = cfg["model"]["family"].lower()
     if fam == "rf":
@@ -168,7 +201,10 @@ def train_model(cfg: Dict, X_train: np.ndarray, y_train: np.ndarray):
 
 
 def main():
-    cfg = load_config()
+    parser = argparse.ArgumentParser(description="Train and evaluate the TinyML gesture model.")
+    parser.add_argument("--config", default="Product/ml/config.yaml", help="Path to YAML config")
+    args = parser.parse_args()
+    cfg = load_config(args.config)
 
     raw_dir = Path(cfg["data"]["raw_dir"])
     file_glob = cfg["data"]["file_glob"]
@@ -191,6 +227,8 @@ def main():
             f"Current window config requires at least {required_samples} samples per trial "
             f"({ws}s at {sr}Hz). Add longer recordings or reduce window_seconds/adjust sample_rate_hz."
         )
+
+    validate_class_coverage(cfg, y)
 
     le = LabelEncoder()
     y_enc = le.fit_transform(y)

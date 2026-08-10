@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "PowerShell($bytes = [System.IO.File]::ReadAllBytes\\(\"S:\\\\Projects\\\\University\\\\ETTML\\\\Project Planning\\\\Course Information\\\\Welcome to TinyML - ETTML-01 Tiny Machine Learning \\(E25.28524PU012.A\\).pdf\"\\); $text = [System.Text.Encoding]::ASCII.GetString\\($bytes\\); $matches = [regex]::Matches\\($text, '[A-Za-z]{4,}'\\); $matches | Select-Object -First 20 | ForEach-Object { $_.Value })"
-    ]
-  }
-}

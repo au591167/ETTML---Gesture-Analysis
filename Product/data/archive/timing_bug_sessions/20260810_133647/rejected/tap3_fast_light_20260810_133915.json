@@ -1,0 +1,17 @@
+{
+  "session_id": "20260810_133647",
+  "label": "tap3",
+  "pace": "fast",
+  "force": "light",
+  "operator_accepted": false,
+  "samples": 1200.0,
+  "median_interval_us": 2501.0,
+  "peak_magnitude_g": 0.023399999999999966,
+  "peak_time_ms": 2175.029,
+  "cue_latency_ms": 1675.029,
+  "peak_axis_g": 0.019500000000000073,
+  "dynamic_rms_g": 0.008850508459969967,
+  "active_span_ms": 0.0,
+  "event_count": 0.0,
+  "clipped": 0.0
+}

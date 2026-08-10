@@ -22,21 +22,21 @@
     "clip_value": null
   },
   "features": {
-    "set": "stat_v1",
+    "set": "stat_v2",
     "include": [
-      "mean",
       "std",
       "min",
       "max",
       "range",
       "energy",
-      "zero_crossings"
+      "peak_count",
+      "max_abs_diff"
     ]
   },
   "decision_logic": {
     "confidence_threshold": 0.75,
     "smoothing_windows": 3,
-    "debounce_ms": 300
+    "debounce_ms": 4000
   },
   "firmware_artifacts": {
     "header": "Product/firmware/src/model_data.h",
@@ -46,7 +46,6 @@
   "real_inference": true,
   "notes": [
     "Real MLP weights + StandardScaler serialized for firmware.",
-    "model_infer() now performs a real forward pass (scale + MLP + softmax).",
-    "Retrain on real captured data and re-export to update the deployed model."
+    "model_infer() performs a real forward pass (scale + MLP + softmax)."
   ]
 }

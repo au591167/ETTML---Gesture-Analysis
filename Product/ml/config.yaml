@@ -5,7 +5,8 @@ project:
 
 data:
   root_dir: "Product/data"
-  raw_dir: "Product/data/raw"
+  # Accepted, balanced high-rate baseline captured on 2026-08-10.
+  raw_dir: "Product/data/pilot_v3/20260810_141717/accepted"
   processed_dir: "Product/data/processed"
   file_glob: "*.csv"
   expected_columns: ["timestamp", "ax", "ay", "az", "label"]
@@ -24,9 +25,9 @@ labels:
     tap3: "exit"
 
 sampling:
-  sample_rate_hz: 50
-  window_seconds: 1.0
-  stride_seconds: 0.2
+  sample_rate_hz: 400
+  window_seconds: 4.0
+  stride_seconds: 0.25
 
 preprocessing:
   remove_window_mean: true
@@ -35,22 +36,24 @@ preprocessing:
   clip_value: null     # e.g. 6.0 for clipped z-score
 
 features:
-  set: "stat_v1"
+  set: "stat_v2"
   include:
-    - mean
     - std
     - min
     - max
     - range
     - energy
-    - zero_crossings
+    - peak_count
+    - max_abs_diff
 
 model:
   family: "mlp"        # mlp | rf
   mlp:
     hidden_layers: [32, 16]
     activation: "relu"
-    epochs: 40
+    # scikit-learn calls this max_iter. 40 stopped before convergence on the
+    # real five-class dataset; 500 gives the small MLP room to converge.
+    epochs: 500
     batch_size: 32
     learning_rate: 0.001
   rf:
@@ -72,7 +75,9 @@ evaluation:
 decision_logic:
   confidence_threshold: 0.75
   smoothing_windows: 3
-  debounce_ms: 300
+  # A captured gesture remains inside a four-second sliding window. Prevent
+  # the same physical action from being emitted more than once.
+  debounce_ms: 4000
 
 export:
   output_dir: "Product/ml/artifacts"

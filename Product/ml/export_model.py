@@ -6,8 +6,8 @@ StandardScaler, and serializes the real trained weights + scaler as C arrays
 so the firmware can run actual on-device inference (not a placeholder).
 
 Artifacts generated:
-- Product/firmware/model_data.h
-- Product/firmware/model_data.cpp  (real forward pass)
+- Product/firmware/src/model_data.h
+- Product/firmware/src/model_data.cpp  (real forward pass)
 - Product/ml/artifacts/export_summary.json
 - Product/ml/artifacts/scaler.json   (mean/std per feature, for parity checks)
 - Product/ml/artifacts/model.pkl     (sklearn model, for reproducibility)
@@ -15,7 +15,11 @@ Artifacts generated:
 
 from __future__ import annotations
 
+import argparse
 import json
+import os
+import pickle
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -24,6 +28,7 @@ from train import (
     load_config as train_load_config,
     load_raw_data,
     build_dataset,
+    validate_class_coverage,
 )
 
 
@@ -31,7 +36,7 @@ def load_config(path: str = "Product/ml/config.yaml") -> Dict[str, Any]:
     return train_load_config(path)
 
 
-# Optional heavy deps; exporter degrades gracefully to placeholder if missing.
+# Imports are checked explicitly so export cannot silently deploy a placeholder.
 try:
     import numpy as np
     from sklearn.preprocessing import StandardScaler
@@ -311,6 +316,7 @@ def _train_and_export(cfg: Dict[str, Any]):
         raise ValueError(
             "No training windows produced. Add recordings or reduce window_seconds/sample_rate_hz."
         )
+    validate_class_coverage(cfg, y)
 
     from sklearn.preprocessing import LabelEncoder
     from sklearn.model_selection import train_test_split
@@ -381,7 +387,10 @@ def _train_and_export(cfg: Dict[str, Any]):
 
 
 def main() -> None:
-    cfg = load_config()
+    parser = argparse.ArgumentParser(description="Train and atomically export the TinyML model.")
+    parser.add_argument("--config", default="Product/ml/config.yaml", help="Path to YAML config")
+    args = parser.parse_args()
+    cfg = load_config(args.config)
     out_dir = Path(cfg["export"]["output_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -395,71 +404,29 @@ def main() -> None:
     command_mapping = dict(cfg["labels"]["command_mapping"])
     feature_count = compute_feature_count(cfg)
 
-    real = False
-    payload = None
-    if HAS_SKLEARN:
-        try:
-            payload, model, le = _train_and_export(cfg)
-            real = True
-        except Exception as e:  # pragma: no cover
-            print(f"[WARN] Training failed ({e}). Falling back to placeholder export.")
+    if not HAS_SKLEARN:
+        raise RuntimeError("numpy/scikit-learn are required; existing artifacts were not changed.")
 
-    if real:
-        hidden = payload["hidden_layers"]
-        header_text = generate_header(cfg, classes, feature_count, hidden)
-        cpp_text = generate_cpp(
-            cfg,
-            classes,
-            command_mapping,
-            payload["scaler_mean"],
-            payload["scaler_scale"],
-            payload["coefs"],
-            payload["intercepts"],
-            hidden,
-        )
-        scaler_json = {
-            "mean": [float(x) for x in payload["scaler_mean"]],
-            "scale": [float(x) for x in payload["scaler_scale"]],
-            "feature_count": feature_count,
-}
-        (out_dir / "scaler.json").write_text(json.dumps(scaler_json, indent=2), encoding="utf-8")
-        import pickle
-
-        with (out_dir / "model.pkl").open("wb") as f:
-            pickle.dump(model, f)
-        # Also save the fitted LabelEncoder so downstream tools (e.g.
-        # auto_capture.py) can map model's encoded prediction index -> class name.
-        with (out_dir / "label_encoder.pkl").open("wb") as f:
-            pickle.dump(le, f)
-        notes = [
-            "Real MLP weights + StandardScaler serialized for firmware.",
-            "model_infer() now performs a real forward pass (scale + MLP + softmax).",
-            "Retrain on real captured data and re-export to update the deployed model.",
-        ]
-    else:
-        # Placeholder export with zero weights (safe idle fallback).
-        hidden = [32, 16]
-        header_text = generate_header(cfg, classes, feature_count, hidden)
-        zero_coefs = []
-        dims = [feature_count] + list(hidden)
-        for in_d, out_d in zip(dims, list(hidden) + [len(classes)]):
-            zero_coefs.append([[0.0] * out_d for _ in range(in_d)])
-        zero_biases = [[0.0] * out_d for out_d in list(hidden) + [len(classes)]]
-        cpp_text = generate_cpp(
-            cfg, classes, command_mapping,
-            [0.0] * feature_count, [1.0] * feature_count,
-            zero_coefs, zero_biases, hidden,
-        )
-        notes = [
-            "Placeholder export (sklearn unavailable or training failed).",
-            "model_infer() returns near-idle because weights are zero.",
-            "Install deps and collect data to enable real inference.",
-        ]
+    # Complete training and serialization in memory before touching deployed files.
+    payload, model, le = _train_and_export(cfg)
+    hidden = payload["hidden_layers"]
+    header_text = generate_header(cfg, classes, feature_count, hidden)
+    cpp_text = generate_cpp(
+        cfg, classes, command_mapping, payload["scaler_mean"], payload["scaler_scale"],
+        payload["coefs"], payload["intercepts"], hidden,
+    )
+    scaler_json = {
+        "mean": [float(x) for x in payload["scaler_mean"]],
+        "scale": [float(x) for x in payload["scaler_scale"]],
+        "feature_count": feature_count,
+    }
+    notes = [
+        "Real MLP weights + StandardScaler serialized for firmware.",
+        "model_infer() performs a real forward pass (scale + MLP + softmax).",
+    ]
 
     header_path = firmware_dir / "model_data.h"
     cpp_path = firmware_dir / "model_data.cpp"
-    header_path.write_text(header_text, encoding="utf-8")
-    cpp_path.write_text(cpp_text, encoding="utf-8")
 
     summary: Dict[str, Any] = {
         "project": cfg["project"]["name"],
@@ -475,21 +442,43 @@ def main() -> None:
             "source": str(cpp_path).replace("\\", "/"),
             "feature_count": feature_count,
         },
-        "real_inference": real,
+        "real_inference": True,
         "notes": notes,
     }
 
     summary_path = out_dir / "export_summary.json"
-    summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+    # Stage every output first. os.replace is atomic per file, preventing truncated
+    # artifacts; no deployed file is touched if training or staging fails.
+    outputs = {
+        header_path: header_text.encode("utf-8"),
+        cpp_path: cpp_text.encode("utf-8"),
+        out_dir / "scaler.json": json.dumps(scaler_json, indent=2).encode("utf-8"),
+        out_dir / "model.pkl": pickle.dumps(model),
+        out_dir / "label_encoder.pkl": pickle.dumps(le),
+        summary_path: json.dumps(summary, indent=2).encode("utf-8"),
+    }
+    staged = []
+    try:
+        for target, data in outputs.items():
+            fd, temp_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+            staged.append((Path(temp_name), target))
+        for temp_path, target in staged:
+            os.replace(temp_path, target)
+    finally:
+        for temp_path, _target in staged:
+            if temp_path.exists():
+                temp_path.unlink()
 
     print(f"[OK] Wrote export summary: {summary_path}")
     print(f"[OK] Wrote firmware header: {header_path}")
     print(f"[OK] Wrote firmware source: {cpp_path}")
-    if real:
-        print(f"[OK] Trained on {payload['n_samples']} windows, {payload['n_features']} features.")
-        print("[OK] model_infer() now runs a REAL MLP forward pass.")
-    else:
-        print("[INFO] model_infer() is a placeholder until sklearn is available with real data.")
+    print(f"[OK] Trained on {payload['n_samples']} windows, {payload['n_features']} features.")
+    print("[OK] model_infer() now runs a REAL MLP forward pass.")
 
 
 if __name__ == "__main__":

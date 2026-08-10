@@ -1,0 +1,12 @@
+{
+  "session_id": "20260810_130508",
+  "label": "tap1",
+  "pace": "natural",
+  "force": "firm",
+  "operator_accepted": true,
+  "samples": 1200.0,
+  "median_interval_us": 2499.0,
+  "peak_magnitude_g": 16.33045123718264,
+  "peak_time_ms": 2705.025,
+  "cue_latency_ms": 2205.025
+}

@@ -19,32 +19,28 @@ matplotlib.use("Agg")  # headless backend (no display needed)
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
-RAW_DIR = Path("Product/data/raw")
+from train import build_dataset, load_config, load_raw_data, train_model, validate_class_coverage
+
+RAW_DIR = Path("Product/data/pilot_v3/20260810_141717/accepted")
 OUT_DIR = Path("Report/src/img")
 
 CLASSES = ["idle", "tap1", "tap2", "tap3", "shake_lr"]
 AXES = ["ax", "ay", "az"]
 
-# Held-out test confusion matrix from the baseline training run.
-# Rows = true class, Cols = predicted class (order: shake_lr, tap1, tap2, tap3).
-CM_LABELS = ["shake_lr", "tap1", "tap2", "tap3"]
-CONFUSION = np.array([
-    [1, 0, 0, 0],
-    [0, 1, 0, 0],
-    [0, 1, 0, 0],
-    [0, 1, 0, 0],
-], dtype=int)
-
-
 def load_trials(label: str) -> list[pd.DataFrame]:
     """Load all CSV trial files for a given gesture class, skipping empty files."""
     trials = []
-    for fp in sorted((RAW_DIR / label).glob("*.csv")):
+    for fp in sorted(RAW_DIR.glob(f"{label}_*.csv")):
         if fp.stat().st_size == 0:
             print(f"[WARN] Skipping empty trial file: {fp}")
             continue
-        df = pd.read_csv(fp)
+        df = pd.read_csv(fp).rename(
+            columns={"time_us": "timestamp", "x_g": "ax", "y_g": "ay", "z_g": "az"}
+        )
         if len(df) > 0:
             trials.append(df)
         else:
@@ -64,7 +60,7 @@ def plot_gesture_signals() -> None:
         if trials:
             # Overlay all trials for the class, semi-transparent.
             for t in trials:
-                t_ms = (t["timestamp"] - t["timestamp"].iloc[0]) / 1e3 if "timestamp" in t else np.arange(len(t)) / 50.0
+                t_ms = (t["timestamp"] - t["timestamp"].iloc[0]) / 1e3
                 for a in AXES:
                     ax.plot(t_ms, t[a], color=colors[a], alpha=0.55, linewidth=1.0,
                             label=a if t is trials[0] else None)
@@ -76,7 +72,7 @@ def plot_gesture_signals() -> None:
         ax.grid(alpha=0.3, linewidth=0.5)
 
     axes[0].legend(loc="upper right", fontsize=8, ncol=3)
-    axes[-1].set_xlabel("Tid (s)")
+    axes[-1].set_xlabel("Tid (ms)")
     fig.suptitle("Accelerometersignaler pr. gestusklasse (ax/ay/az)", fontsize=13)
     fig.tight_layout(rect=(0, 0, 1, 0.98))
     out = OUT_DIR / "gesture_signals.png"
@@ -85,21 +81,45 @@ def plot_gesture_signals() -> None:
     print(f"[OK] Wrote {out}")
 
 
-def plot_confusion_matrix() -> None:
-    fig, ax = plt.subplots(figsize=(6.5, 5.5))
-    im = ax.imshow(CONFUSION, cmap="Blues")
+def evaluate_confusion() -> tuple[list[str], np.ndarray]:
+    """Reproduce train.py's held-out split instead of embedding stale numbers."""
+    cfg = load_config("Product/ml/config.yaml")
+    df = load_raw_data(Path(cfg["data"]["raw_dir"]), cfg["data"]["file_glob"])
+    X, y = build_dataset(cfg, df)
+    validate_class_coverage(cfg, y)
 
-    ax.set_xticks(np.arange(len(CM_LABELS)), labels=CM_LABELS, rotation=45, ha="right")
-    ax.set_yticks(np.arange(len(CM_LABELS)), labels=CM_LABELS)
+    encoder = LabelEncoder()
+    y_encoded = encoder.fit_transform(y)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X,
+        y_encoded,
+        test_size=cfg["evaluation"]["test_size"],
+        random_state=cfg["evaluation"]["random_state"],
+        stratify=y_encoded,
+    )
+    scaler = StandardScaler()
+    model = train_model(cfg, scaler.fit_transform(X_train), y_train)
+    predicted = model.predict(scaler.transform(X_test))
+    labels = list(range(len(encoder.classes_)))
+    return [str(x) for x in encoder.classes_], confusion_matrix(y_test, predicted, labels=labels)
+
+
+def plot_confusion_matrix() -> None:
+    cm_labels, confusion = evaluate_confusion()
+    fig, ax = plt.subplots(figsize=(6.5, 5.5))
+    im = ax.imshow(confusion, cmap="Blues")
+
+    ax.set_xticks(np.arange(len(cm_labels)), labels=cm_labels, rotation=45, ha="right")
+    ax.set_yticks(np.arange(len(cm_labels)), labels=cm_labels)
     ax.set_xlabel("Forudsagt klasse")
     ax.set_ylabel("Faktisk klasse")
-    ax.set_title("Confusion matrix (holdt-out test, 4 vinduer)", fontsize=12)
+    ax.set_title(f"Confusion matrix (held-out test, {int(confusion.sum())} vinduer)", fontsize=12)
 
     # Annotate each cell.
-    for i in range(len(CM_LABELS)):
-        for j in range(len(CM_LABELS)):
-            val = CONFUSION[i, j]
-            color = "white" if val > CONFUSION.max() / 2 else "black"
+    for i in range(len(cm_labels)):
+        for j in range(len(cm_labels)):
+            val = confusion[i, j]
+            color = "white" if val > confusion.max() / 2 else "black"
             ax.text(j, i, str(val), ha="center", va="center", color=color, fontsize=12)
 
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)

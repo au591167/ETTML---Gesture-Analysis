@@ -1,0 +1,17 @@
+{
+  "session_id": "20260810_130508",
+  "label": "idle",
+  "pace": "na",
+  "force": "na",
+  "operator_accepted": true,
+  "samples": 1200.0,
+  "median_interval_us": 2501.0,
+  "peak_magnitude_g": 0.06537591299553683,
+  "peak_time_ms": 467.518,
+  "cue_latency_ms": -32.48200000000003,
+  "peak_axis_g": 0.06240000000000001,
+  "dynamic_rms_g": 0.009366091767647794,
+  "active_span_ms": 0.0,
+  "event_count": 0.0,
+  "clipped": 0.0
+}

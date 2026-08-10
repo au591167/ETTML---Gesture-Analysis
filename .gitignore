@@ -7,7 +7,12 @@ __pycache__/
 
 # Tool/cache folders
 .vscode/
+.claude/settings.local.json
 *.log
+
+# Local build outputs (archived release binaries are explicitly tracked).
+firmware.bin
+Product/firmware/build/current/
 
 # OS files
 .DS_Store
