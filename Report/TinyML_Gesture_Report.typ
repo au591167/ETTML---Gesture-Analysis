@@ -32,27 +32,27 @@
 
 = Resumé
 
-Projektet realiserer en komplet TinyML-kæde fra egen dataindsamling til lokal klassifikation på en Particle Photon 2. En ADXL343 måler acceleration på tre akser ved 400 Hz. Hvert firesekunders vindue omformes til 28 statistiske features og klassificeres af et multi-layer perceptron (MLP) med arkitekturen 28–32–16–5. De fem klasser er `idle`, ét, to og tre tryk samt venstre-højre-rystelse. Aktive klasser kortlægges til blackjack-kommandoerne stand, hit, exit og split.
+Projektet er en lille gestuslæser, som kører direkte på en Particle Photon 2. En ADXL343 måler bevægelse på tre akser 400 gange i sekundet. Fire sekunders målinger bliver kogt ned til 28 tal, som beskriver signalet. De sendes gennem et lille neuralt netværk med lagene 28–32–16–5. Modellen vælger mellem fem tilstande: ingen bevægelse, ét, to eller tre tryk samt en rystelse fra side til side. De fire aktive gestusser svarer til blackjack-kommandoerne stand, hit, exit og split.
 
-Den endelige balancerede baseline består af 25 accepterede hardwareoptagelser, fem pr. klasse. Optagelsesprogrammet randomiserede instruktionerne og afviste automatisk forsøg med forkert antal impacts, bevægelse under idle eller utilstrækkelig shake. To forsøg blev afvist og gentaget. Alle accepterede filer har 1.600 samples, monotone timestamps, ingen manglende værdier og ingen sensor-clipping.
+Det endelige datasæt består af 25 godkendte optagelser, fem fra hver klasse. Programmet valgte instruktionerne i tilfældig rækkefølge og afviste selv et forsøg, hvis antallet af tryk var forkert, hvis en idle-optagelse indeholdt bevægelse, eller hvis en rystelse var for svag. To forsøg blev afvist og taget om. Alle godkendte filer har 1.600 målepunkter i rigtig rækkefølge, uden manglende værdier eller målinger uden for sensorens område.
 
-En reproducerbar stratificeret 80/20-split gav 80,0 % accuracy på fem testvinduer. Dette opfylder projektets demonstrationsmål, men testmængden er for lille til at dokumentere generel robusthed. På den endelige firmware blev model-inference observeret til 345 µs i gennemsnit og 364 µs maksimalt; cloud-buildet anvendte 27.950 B flash og 46.686 B RAM. LIVE blev verificeret fysisk: klassifikation udløste de specificerede RGB-mønstre. Projektet vurderes derfor som en fungerende, ressourcelet prototype med tydeligt dokumenterede begrænsninger.
+Data blev delt, så 80 % blev brugt til træning og 20 % til test. Modellen ramte rigtigt i fire ud af fem testeksempler, altså 80 %. Det opfylder projektets mål, men fem eksempler er alt for få til at bevise, at modellen virker lige godt for andre brugere. På Photon 2 tog selve modelberegningen i gennemsnit 345 µs og højst 364 µs. Firmwaren brugte 27.950 B flash og 46.686 B RAM. LIVE blev også prøvet på den fysiske enhed, hvor de korrekte LED-mønstre blev vist. Resultatet er derfor en fungerende prototype, men ikke et færdigt forbrugerprodukt.
 
 = Introduktion
 
-TinyML kombinerer machine learning, signalbehandling og embedded udvikling. Kursets introduktion fremhæver lokal analyse på små 32-bit microcontrollere, datakvalitet, preprocessing og modeldeployment som centrale læringsmål [1]. Semesterprojektet kræver specifikt Photon 2, mindst én lokal sensor, egnet preprocessing, en ML-/DL-algoritme, egne mærkede data og et observerbart klasse-, regressions- eller anomalitetsoutput [2].
+TinyML handler kort sagt om at få machine learning til at køre på små computere tæt på sensoren. På kurset arbejder vi blandt andet med gode datasæt, behandling af sensordata og med at få en trænet model over på en microcontroller [1]. Semesterprojektet kræver en Photon 2, mindst én sensor, egne mærkede data, passende databehandling og en ML- eller DL-model med et resultat, man kan se eller aflæse [2].
 
-Gestusgenkendelse er egnet som klassifikationsproblem, fordi accelerationens form påvirkes af antal impacts, tempo, kraft, montage og sensororientering. En simpel tærskel kan registrere et kraftigt slag, men en robust femklasses beslutning kræver flere signalegenskaber. Projektets forskningsspørgsmål er derfor:
+Gestusgenkendelse passer godt som klassifikationsopgave. Målingerne ændrer sig både med antallet af tryk, hastigheden, kraften, monteringen og sensorens retning. En fast grænse kan godt opdage et hårdt slag, men den har sværere ved at skelne sikkert mellem alle fem klasser. Derfor blev projektets hovedspørgsmål:
 
 #quote(block: true)[
-Kan en kompakt feature-baseret model på Photon 2 skelne idle, ét, to og tre tryk samt en lateral rystelse og omsætte resultatet til tydelig feedback med dokumenterbar latency og ressourcebrug?
+Kan en lille model på Photon 2 skelne mellem ingen bevægelse, ét, to og tre tryk samt en rystelse fra side til side—og bagefter vise resultatet tydeligt uden at bruge for meget tid eller hukommelse?
 ]
 
-Projektet er udført individuelt af Erik Kjær Klint. Arbejdet omfatter hardwareintegration, dataindsamling, Python-pipeline, modeltræning, C++-deployment, test og rapport. AI-assistance er beskrevet transparent i afsnittet om værktøjer; alle målinger og konklusioner er efterprøvet mod repository og hardware.
+Projektet er udført individuelt af Erik Kjær Klint. Jeg har stået for opkobling, dataindsamling, Python-kode, træning, firmware, test og rapport. AI-værktøjerne BlackBox AI og OpenAI Codex er brugt som hjælp til kode, fejlsøgning, struktur og sproglig redigering [10], [11]. Jeg har selv udført forsøgene og kontrolleret resultaterne mod data, kildekode, build-output og den fysiske enhed.
 
 = Projektbeskrivelse og scope
 
-Artefaktet er en gestusgrænseflade til en blackjack-simulation, ikke en fuld spilmotor. Systemets ansvar slutter ved en valideret gestushændelse og en visuel/seriel kommando. Afgrænsningen holder fokus på kursets sensing–preprocessing–ML–deployment-kæde.
+Projektet er en gestusgrænseflade til en blackjack-simulation og ikke et helt blackjack-spil. Når systemet har genkendt en gestus, sender det en kommando og viser et LED-mønster. På den måde kan projektet holde fokus på sensoren, dataene, modellen og den indbyggede løsning.
 
 #table(
   columns: (1.1fr, 1fr, 2fr),
@@ -64,13 +64,17 @@ Artefaktet er en gestusgrænseflade til en blackjack-simulation, ikke en fuld sp
   [`shake_lr`], [split], [rød–blå–rød–blå med 1,0 s startinterval],
 )
 
-Firmware har tre eksplicitte driftsformer. `DEBUG` giver sensordiagnostik uden gestushandlinger. `TRAINING` ejer en guided capture-state-machine. `LIVE` anvender den eksporterede model, confidence-gating, temporal smoothing, impact-kontrol og LED-/serial-events. Denne adskillelse gør det muligt at forklare, teste og demonstrere samme sensor- og modelkontrakt med forskellig præsentation.
+Firmwaren har tre tydelige tilstande. `DEBUG` bruges til at se målinger og finde fejl. `TRAINING` bruges, når der skal samles data. `LIVE` bruger modellen og reagerer på gestusser med serielle beskeder og LED-lys. I LIVE bliver et resultat først godkendt, når modellen er sikker og har set samme resultat flere gange. Tap-klasserne får desuden kontrolleret det målte antal slag.
+
+== Brug af AI-værktøjer
+
+BlackBox AI blev brugt tidligt i projektet til forslag til kode og fejlsøgning. OpenAI Codex blev senere brugt til at gennemgå projektet, rette kode, analysere data, hjælpe med dokumentation og gøre rapporten klar [10], [11]. AI har altså været et hjælpeværktøj på samme måde som en avanceret kodeassistent. Det har ikke udført de fysiske forsøg eller leveret måleresultaterne. Jeg har gennemgået ændringerne, kørt testene og taget de endelige valg. Denne oplysning står både her og i appendiks D, så brugen er tydelig.
 
 = Kravanalyse
 
 == Sporbarhed til kursuskrav
 
-Semesterbriefet angiver minimumssektionerne introduktion, projektbeskrivelse, kravanalyse, systemdesign, implementering, test/verifikation og konklusion samt et mål på omtrent 20 sider [2]. Tabellen viser, hvordan de tekniske krav spores til konkrete artefakter.
+Semesterbeskrivelsen kræver som minimum introduktion, projektbeskrivelse, kravanalyse, systemdesign, implementering, test og konklusion. Den anbefaler omkring 20 sider [2]. Tabellen herunder viser, hvor hvert teknisk krav bliver opfyldt.
 
 #table(
   columns: (1.6fr, 2fr, 1.2fr),
@@ -78,19 +82,19 @@ Semesterbriefet angiver minimumssektionerne introduktion, projektbeskrivelse, kr
   [Photon 2 embedded hardware], [`Product/firmware/src/main.cpp`; fysisk LIVE-test], [Opfyldt],
   [Lokal sensor], [ADXL343 via I2C; DEVID- og read-error-kontrol], [Opfyldt],
   [Egne mærkede data], [25 accepterede v3-CSV'er med labels og metadata], [Opfyldt],
-  [Egnet preprocessing], [mean removal, magnitude og 28 features], [Opfyldt],
+  [Behandling af målinger], [fjernelse af gennemsnit, samlet bevægelse og 28 egenskaber], [Opfyldt],
   [ML-/DL-algoritme], [StandardScaler + MLP 28–32–16–5], [Opfyldt],
   [Lokal forudsigelse], [C++ forward-pass og softmax på Photon 2], [Opfyldt],
   [Observerbar tilstand], [`STATUS`, `EVENT` og RGB-mønstre], [Opfyldt],
-  [Delbar kode/data/dokumentation], [repository med rå source, CSV og PDF], [Klargjort],
+  [Delbar kode/data/dokumentation], [GitHub-repository med kildekode, CSV og PDF], [Klargjort],
   [Hardwaredokumentation], [pin-tabel, foto og officielle databladreferencer], [Opfyldt i rapport],
 )
 
 == Funktionelle og ikke-funktionelle mål
 
-De funktionelle mål er korrekt sampling, femklasse-inference, idle-afvisning, stabil event-emission og den specificerede LED-kortlægning. Projektets egne ikke-funktionelle targets er mindst 80 % held-out accuracy, under 50 ms ren model-inference, ingen dynamisk allokering i forward-pass og et firmwareimage, der passer komfortabelt på Photon 2. Disse er projekttargets og ikke tærskler fastsat af kurset.
+Systemet skal måle stabilt, vælge mellem fem klasser, undgå at reagere under idle og vise den rigtige LED-kode. Mine egne mål var mindst 80 % på testdata, under 50 ms til selve modelberegningen og et program, som uden problemer kan være på Photon 2. Det er mine projektmål og ikke krav fra kurset.
 
-Particle angiver en 200 MHz Arm Cortex-M33, op til 2 MB user-application og 3 MB RAM for Photon 2 [4]. Den platformsmargin gør et float32-MLP og en 1.600-sample ringbuffer realistisk, men kompakthed er stadig relevant for reproducerbar embedded praksis.
+Photon 2 har ifølge Particle en 200 MHz Arm Cortex-M33, op til 2 MB plads til brugerprogrammet og 3 MB RAM [4]. Der er derfor god plads til modellen og bufferen med 1.600 målinger, selv om det stadig er en god idé at holde løsningen lille og enkel.
 
 = Systemdesign
 
@@ -98,22 +102,22 @@ Particle angiver en 200 MHz Arm Cortex-M33, op til 2 MB user-application og 3 MB
 
 #figure(
   placement: none,
-  caption: [End-to-end dataflow. Den samme featurekontrakt anvendes offline og i firmware.],
+  caption: [Dataens vej gennem systemet. De samme 28 egenskaber beregnes under træning og på Photon 2.],
   table(
     columns: (1fr, auto, 1fr, auto, 1fr),
     align: center,
     inset: 7pt,
-    [ADXL343\400 Hz XYZ], [$arrow.r$], [4 s vindue\1.600 samples], [$arrow.r$], [28 features],
+    [ADXL343\400 Hz XYZ], [$arrow.r$], [4 s vindue\1.600 målinger], [$arrow.r$], [28 egenskaber],
     [], [], [$arrow.b$], [], [],
     [RGB + `EVENT`], [$arrow.l$], [Beslutningsfilter], [$arrow.l$], [Scaler + MLP],
   )
 )
 
-Sensorlaget læser synkroniserede X/Y/Z-registre. Repræsentationslaget fjerner middelværdi pr. kanal, beregner magnitude og syv features for hver af fire kanaler. Inferencelaget standardiserer featurevektoren og udfører MLP-forward-pass. Beslutningslaget kræver tre konsekutive sikre resultater, anvender fire sekunders debounce og kontrollerer antal fysisk adskilte impacts for tap-klasser. Præsentationslaget ejer LED'en og serial-protokollen.
+Først læses X, Y og Z samtidig fra sensoren. Derefter fjernes den faste hældning i hver kanal, den samlede bevægelsesstyrke beregnes, og syv egenskaber findes for hver af de fire signaler. Modellen får dermed 28 tal at arbejde med. Før en kommando bliver sendt, skal samme sikre resultat komme tre gange i træk. Systemet venter også fire sekunder, før den samme bevægelse kan udløse en ny kommando. Til sidst viser LED'en resultatet, og det bliver skrevet over USB.
 
 == Hardware og sensor
 
-ADXL343 understøtter ±2/±4/±8/±16 g, full-resolution med nominelt 3,9 mg/LSB samt valgbare outputrater op til 3.200 Hz [3]. Projektet bruger ±16 g full-resolution og 400 Hz ODR. Databladet oplyser desuden, at støjen stiger ved rater over 100 Hz; ved 400 Hz er typisk RMS-støj under ca. 1,5 LSB på X/Y og 2,2 LSB på Z [3]. Den højere rate blev valgt, fordi taps er korte impacts med efterfølgende mekanisk ringing, som blev undersamplet ved den tidligere 50 Hz-konfiguration.
+ADXL343 kan måle i områderne ±2, ±4, ±8 og ±16 g. I full-resolution svarer ét trin omtrent til 3,9 mg, og sensoren kan levere op til 3.200 målinger i sekundet [3]. Her bruges ±16 g og 400 Hz. Databladet siger, at støjen vokser lidt over 100 Hz, men 400 Hz er stadig inden for sensorens normale område [3]. Den højere hastighed blev nødvendig, fordi et tap sker meget hurtigt. Ved de første forsøg med 50 Hz kunne vigtige dele af slaget ganske enkelt ligge mellem to målinger.
 
 #figure(
   placement: none,
@@ -130,48 +134,48 @@ ADXL343 understøtter ±2/±4/±8/±16 g, full-resolution med nominelt 3,9 mg/LS
   [D1 / SCL], [SCL], [I2C-clock],
 )
 
-Firmware prober adresserne `0x53` og `0x1D`, forventer device-ID `0xE5`, konfigurerer measurement mode og rapporterer fejl via `STATUS`. Samples tidsstemples i mikrosekunder. I den endelige serie lå medianintervallet mellem 2.498 og 2.501 µs; det svarer tæt til 400 Hz.
+Ved opstart prøver firmwaren begge mulige sensoradresser, `0x53` og `0x1D`, og kontrollerer ID-værdien `0xE5`. Hvis noget går galt, kan det ses med kommandoen `STATUS`. Hver måling får et tidsstempel i mikrosekunder. I den sidste serie lå det normale mellemrum mellem målingerne på 2.498–2.501 µs, hvilket ligger meget tæt på de ønskede 400 Hz.
 
 == Driftsformer og protokol
 
-Kommandoerne `MODE DEBUG`, `MODE TRAINING`, `MODE LIVE`, `STATUS` og `TAP_SCOPE` danner et lille tekstbaseret kontrolinterface. LIVE udsender kun stabile events som `EVENT,class=tap2,command=hit,score=...`. LED-sequenceren er non-blocking, så sampling og serial polling fortsætter under feedback.
+Enheden styres med enkle tekstkommandoer som `MODE DEBUG`, `MODE TRAINING`, `MODE LIVE`, `STATUS` og `TAP_SCOPE`. I LIVE sendes en besked som `EVENT,class=tap2,command=hit,score=...`, når en gestus er godkendt. LED-koden bruger ikke ventekald, så sensoren kan fortsætte med at måle, mens lyset blinker.
 
 = Dataindsamling
 
 == Kalibrering og iterativ metode
 
-Den første 50 Hz-baseline viste, at tætte tap-impacts kunne forsvinde mellem samples. En oscilloskoplignende diagnose blev derfor indført: 400 Hz synkron XYZ-capture, tre sekunders gul countdown, 0,5 sekunders pre-cue-baseline og 3,5 sekunder efter grøn GO-indikation. Eksperimentet viste også, at subjektive labels som "light", "normal" og "firm" ikke havde rene, ikke-overlappende amplitudebånd. De bruges derfor til at skabe variation, ikke som ground-truth kraftklasser.
+De første optagelser ved 50 Hz viste, at hurtige tryk kunne blive overset. Derfor lavede jeg en lille oscilloskoptest ved 400 Hz. En gul nedtælling varer tre sekunder, hvorefter programmet optager et halvt sekund før det grønne GO-signal og 3,5 sekunder bagefter. Testen viste også, at mine egne beskrivelser "light", "normal" og "firm" ikke gav tre tydeligt adskilte kraftniveauer. De bruges derfor kun til at få mere variation i dataene og ikke som facit for kraften.
 
-Det automatiske GUI randomiserer klasse, tempo og ønsket kraft. Det viser næste instruktion stort og centreret under gul ventetid, skifter til grøn under capture og viser den resterende tid. En konservativ validator kontrollerer clipping, idle-bevægelse, tap-event count og shake-varighed. Forkerte forsøg arkiveres som rejected og sættes tilbage i køen.
+Optagelsesvinduet vælger klasse, tempo og ønsket kraft i tilfældig rækkefølge. Instruktionen vises med stor tekst, mens skærmen er gul. Når den bliver grøn, udføres bevægelsen, og en timer viser den resterende tid. Programmet kontrollerer bagefter, om sensoren gik uden for sit område, om idle faktisk var stille, om antallet af tryk passede, og om en rystelse varede længe nok. Et dårligt forsøg gemmes som afvist og bliver automatisk prøvet igen senere.
 
-== Endeligt baseline-datasæt
+== Endeligt datasæt
 
-Den deployede session `20260810_141717` indeholder fem accepterede trials pr. klasse, i alt 25. Hver fil indeholder 1.600 samples plus label, requested pace/force, session-ID og acceptance-status. En JSON-sidecar gemmer bl.a. sampleinterval, peak, dynamisk RMS, aktivt tidsrum, event count og clipping-status; en PNG-sidecar giver visuel kontrol.
+Den session, som modellen blev trænet på, hedder `20260810_141717`. Den indeholder fem godkendte forsøg fra hver klasse, altså 25 i alt. Hver CSV-fil har 1.600 målinger samt klasse, ønsket tempo og kraft, sessionsnummer og godkendelsesstatus. Ved siden af ligger en JSON-fil med kontroltal og en PNG-graf, så optagelsen også kan ses med øjnene.
 
 #table(
   columns: (1.2fr, 0.8fr, 2.5fr),
   [*Klasse*], [*Accepteret*], [*Kvalitetskontrol*],
-  [`idle`], [5], [0 events; lav dynamisk peak],
-  [`tap1`], [5], [præcis 1 impact-event],
-  [`tap2`], [5], [præcis 2 impact-events],
-  [`tap3`], [5], [præcis 3 impact-events],
+  [`idle`], [5], [0 bevægelseshændelser; lav spidsværdi],
+  [`tap1`], [5], [præcis 1 målt slag],
+  [`tap2`], [5], [præcis 2 målte slag],
+  [`tap3`], [5], [præcis 3 målte slag],
   [`shake_lr`], [5], [tilstrækkelig RMS og aktiv varighed],
-  [*I alt*], [*25*], [balanceret femklasse-baseline],
+  [*I alt*], [*25*], [lige mange fra alle fem klasser],
 )
 
-To forsøg blev automatisk afvist: et idle-vindue havde 0,1248 g peak-axis og blev vurderet som bevæget; et `tap1`-forsøg indeholdt to impacts. Begge blev erstattet af valide trials. Alle 27 rå forsøg havde 1.600 rækker, monotone timestamps, ingen NaN og ingen clipping. Maksimalt isoleret timing-gap var 13,976 ms; medianen var fortsat korrekt. Det bør registreres som scheduler-jitter, men ændrede ikke event-integriteten.
+To forsøg blev automatisk afvist. I det ene blev en idle-optagelse forstyrret af 0,1248 g bevægelse. I det andet blev der målt to slag, selv om opgaven kun bad om ét. Begge blev taget om. Alle 27 rå forsøg havde præcis 1.600 rækker, korrekt tidsrækkefølge, ingen tomme værdier og ingen målinger uden for sensorens område. Det største enkelte hul mellem to målinger var 13,976 ms, men den normale timing var stadig korrekt, og antallet af tryk kunne stadig aflæses.
 
 #figure(
   placement: none,
   image("src/img/gesture_signals.png", width: 100%),
-  caption: [Alle fem accepterede trials pr. klasse fra den deployede 400 Hz-session. Figuren står her sammen med datasetbeskrivelsen, ikke løsrevet efter resultatafsnittet.]
+  caption: [De fem godkendte optagelser fra hver klasse i den endelige 400 Hz-session.]
 )
 
 = Preprocessing og model
 
 == Featurekontrakt
 
-For hver kanal $x$ beregnes først $x'_i = x_i - overline(x)$. Magnitude er $m_i = (a_x^2 + a_y^2 + a_z^2)^(1/2)$. Derefter beregnes syv features for X, Y, Z og magnitude:
+For hvert signal $x$ trækkes gennemsnittet først fra: $x'_i = x_i - overline(x)$. Den samlede bevægelsesstyrke er $m_i = (a_x^2 + a_y^2 + a_z^2)^(1/2)$. Derefter beregnes syv egenskaber for X, Y, Z og den samlede bevægelse:
 
 #table(
   columns: (1.2fr, 2.8fr),
@@ -181,34 +185,34 @@ For hver kanal $x$ beregnes først $x'_i = x_i - overline(x)$. Magnitude er $m_i
   [range], [maksimum minus minimum],
   [energi], [$1/N sum_i (x'_i)^2$],
   [peak count], [lokale peaks over 0,05 g med otte-sample refractory],
-  [max abs diff], [største absolutte forskel mellem nabosamples; impact-skarphed],
+  [max abs diff], [største forskel mellem to nabomålinger; hvor brat slaget er],
 )
 
-Fire kanaler gange syv giver 28 features. Mean er bevidst ikke medtaget, fordi mean removal ellers ville gøre fire features næsten konstante. `StandardScaler` lærer middelværdi og standardafvigelse udelukkende fra træningsdelen og anvender $z=(x-u)/s$; denne adfærd følger bibliotekets dokumenterede kontrakt [5]. Samme scaler-konstanter eksporteres til C++.
+Fire signaler gange syv egenskaber giver 28 inputtal. Gennemsnittet er ikke med som egenskab, fordi det allerede er fjernet og derfor næsten altid ville være nul. `StandardScaler` sørger for, at meget store tal ikke automatisk fylder mere end små tal. Den lærer kun sine værdier fra træningsdata og bruger formlen $z=(x-u)/s$, som beskrevet i scikit-learns dokumentation [5]. De samme værdier kopieres med over i C++.
 
 == MLP og eksport
 
-Modellen er scikit-learn `MLPClassifier` med to ReLU-hidden layers på 32 og 16 neuroner samt femdimensionelt softmax-output. Scikit-learn beskriver MLPClassifier som en backpropagation-trænet ikke-lineær multiclass-model og bruger softmax til multiclass-output [6]. Konfigurationen bruger learning rate 0,001, random state 42 og højst 500 iterationer.
+Modellen er scikit-learns `MLPClassifier`. Den har to skjulte lag med 32 og 16 neuroner og til sidst fem output—ét for hver klasse. Det er et lille neuralt netværk, som kan lære sammenhænge, der ikke kan beskrives med én lige linje. Scikit-learn træner modellen med backpropagation og bruger softmax til at lave fem sammenlignelige klassesandsynligheder [6]. Træningen bruger learning rate 0,001, seed 42 og højst 500 gennemløb.
 
-`export_model.py` træner og serialiserer scaler, label encoder og MLP-vægte. Eksporten er fail-closed: en træningsfejl kan ikke stille og roligt overskrive fungerende firmware med placeholder-vægte. Header/source/artefakter stages og erstattes atomisk efter succes. På enheden ligger parametrene som `const float`-arrays, og forward-pass bruger statiske aktiveringsbuffere uden heap-allokering.
+`export_model.py` træner modellen og skriver både skalering, klassenavne og vægte ud i et format, som firmwaren kan bruge. Hvis træningen fejler, stopper programmet i stedet for at overskrive en fungerende model med tomme værdier. Filerne bliver først erstattet, når hele eksporten er lykkedes. På Photon 2 ligger tallene i faste arrays, så modelberegningen ikke skal bede om ekstra hukommelse undervejs.
 
 = Firmwareimplementering
 
-== Sampling og inference
+== Målinger og modelberegning
 
-LIVE bruger en 1.600-sample buffer ved 2.500 µs targetinterval. Efter første fulde firesekunders vindue beholdes de nyeste 1.500 samples, og 100 nye samples giver 0,25 sekunders stride. Featureberegning og MLP-inference er samme numeriske rækkefølge som Python: magnitude, window mean removal, features, StandardScaler, dense/ReLU/dense/ReLU/dense/softmax.
+LIVE gemmer 1.600 målinger med cirka 2.500 µs mellem hver. Når de første fire sekunder er fyldt, beholdes de nyeste 1.500 målinger. Der skal derfor kun komme 100 nye, før modellen kan regne igen, hvilket svarer til hvert kvarte sekund. Både Python og firmwaren gør tingene i samme rækkefølge: samlet bevægelsesstyrke, fjernelse af gennemsnit, 28 egenskaber, skalering og til sidst det neurale netværk.
 
-Beslutningslaget adskiller sandsynlighed fra handling. En score under 0,75 behandles som idle. Tre ens sikre vinduer kræves før event. Fordi pilotens svageste skel var mellem nærliggende tap-klasser, anvendes den samme fysiske impact-envelope som i capture-validatoren som guard, efter MLP'en har identificeret tap-familien. Det er en hybrid sikkerhedsmekanisme: ML skelner signaltypen, mens kendt tidsstruktur forhindrer, at to målte impacts vises som ét. Denne brug af en regel skal fremgå åbent, da kursuskravet siger, at hovedopgaven ikke må reduceres til ren regelprogrammering [2].
+Et modelresultat bliver ikke brugt med det samme. Hvis sikkerheden er under 0,75, sker der ingenting. Den samme sikre klasse skal også komme tre gange i træk. De første test viste, at modellen især kunne blande ét, to og tre tryk sammen. Derfor tæller firmwaren de tydeligt adskilte slag, efter modellen har vurderet, at signalet er et tap. Det er en kombination af ML og en enkel sikkerhedsregel: modellen skelner mellem idle, tap og shake, mens reglen hjælper med antallet af tryk. Reglen beskrives åbent, fordi kursets opgave ikke må ende som ren regelprogrammering [2].
 
 == LED-controller
 
-LED-controlleren har én ejer og kører uden `delay()`. Den gemmer farve, alternativ farve, on/off-tider og antal pulser. `flashStep()` avancerer mønstret ud fra `millis()`. Det giver den observerbare outputkanal, som semesterbriefet kræver, uden at blokere 400 Hz acquisition.
+LED-styringen bruger ikke `delay()`. I stedet gemmer den farver, tider og antal blink og tager ét lille skridt for hver tur gennem programmets hovedløkke. Derfor kan sensoren fortsat måle 400 gange i sekundet, mens LED'en blinker.
 
 = Test og resultater
 
 == Offline evaluering
 
-Den reproducerbare evaluering bruger en stratificeret 80/20-split med random state 42. Det betyder 20 træningsvinduer og kun fem testvinduer—ét pr. klasse. Resultatet er derfor en smoke-test af kæden, ikke et præcist estimat af generalisering.
+Data blev delt på samme måde hver gang ved hjælp af seed 42. Der blev brugt 20 vinduer til træning og fem til test—ét fra hver klasse. Testen viser, om hele kæden virker, men den er for lille til at sige præcist, hvor godt modellen vil klare helt nye personer og situationer.
 
 #table(
   columns: (1.8fr, 1fr, 1fr),
@@ -226,7 +230,7 @@ Den reproducerbare evaluering bruger en stratificeret 80/20-split med random sta
   caption: [Confusion matrix for den aktuelle 80/20-split. Fire af fem testvinduer er korrekte; `tap1` forveksles med `tap2`.]
 )
 
-Idle, shake, tap2 og tap3 blev korrekte; tap1 blev forudsagt som tap2. Ét eksempel svarer til 20 procentpoint, så 80 % må ikke beskrives som robust performance. En supplerende fem-fold cross-validation på de 25 vinduer gav 76 % samlet accuracy; idle og shake var stabile, mens tap-klasserne stod for fejlene. Denne sekundære analyse understøtter samme konklusion.
+Idle, shake, tap2 og tap3 blev rigtige, mens tap1 blev gættet som tap2. Når testen kun har fem eksempler, ændrer én fejl resultatet med 20 procentpoint. Derfor skal 80 % ikke læses som et stærkt bevis. En ekstra femdelt krydsvalidering gav 76 %. Her var idle og shake stadig de letteste, mens tap-klasserne gav fejlene. Begge test peger altså i samme retning.
 
 == Embedded og LIVE-verifikation
 
@@ -243,48 +247,48 @@ Particle cloud compile af det endelige image lykkedes. Build-output og efterføl
   [Mode], [`LIVE`], [pass],
 )
 
-Efter cloud flash rapporterede enheden `MODE,current=LIVE`, `sensor=ok` og nul read errors. En fysisk hands-on-test bekræftede, at en registreret gestus udløste LED-feedback; brugeren bekræftede direkte, at LIVE-kørslen fungerede. Den verificerer den komplette vertikale kæde. Der blev ikke udført en blind, randomiseret live-confusion-test med et på forhånd fast antal forsøg, så "live accuracy" rapporteres ikke som et tal.
+Efter firmwaren var lagt på enheden, viste `STATUS`, at den var i LIVE, at sensoren virkede, og at der ikke var læsefejl. Jeg prøvede gestusser på den fysiske enhed og så de forventede LED-mønstre. Dermed er hele forløbet fra bevægelse til model og lys testet. Jeg nåede ikke en blind live-test med et fast antal tilfældige forsøg, så rapporten angiver ikke et tal for live-præcision.
 
 == Verifikationsstatus
 
 #table(
   columns: (2.2fr, 1fr, 2fr),
   [*Test*], [*Status*], [*Evidens/begrænsning*],
-  [CSV-integritet og labels], [Pass], [27/27 rå forsøg auditeret],
+  [CSV-filer og klasser], [Godkendt], [alle 27 rå forsøg kontrolleret],
   [Samplingkadence], [Pass], [median 2.498–2.501 µs],
-  [Offline femklasse-inference], [Pass], [80 % på 5 cases],
+  [Femklassetest på computer], [Godkendt], [80 % på 5 eksempler],
   [Compile/flash], [Pass], [cloud build + flash success],
   [On-device latency], [Pass], [345/364 µs mean/max],
   [LED-mapping], [Pass], [fysisk LIVE-kørsel],
-  [Lang idle false-trigger-test], [Ikke målt], [kræver tidsbestemt protokol],
-  [Flere brugere/session-held-out], [Ikke målt], [kun én operatør/session],
+  [Lang idle-test for fejludløsninger], [Ikke målt], [kræver en længere tidsbestemt test],
+  [Flere brugere og optagedage], [Ikke målt], [kun én person og én slut-session],
   [Power/endurance], [Ikke målt], [uden for dagens sluttest],
 )
 
 = Diskussion
 
-Projektets stærkeste resultat er ikke 80 %-tallet isoleret, men den verificerede data-til-firmware-kæde. Sampling, labeling, featureberegning, scaler, MLP, C++-forward-pass, beslutningslag og feedback er alle konkrete og observerbare. Den korte inference-tid viser, at den valgte model er langt under platformens compute-loft.
+Det vigtigste resultat er ikke kun tallet 80 %. Det vigtigste er, at hele kæden faktisk virker: sensoren måler, data bliver mærket, de 28 egenskaber beregnes, modellen kører i C++, og en godkendt gestus giver lys og en seriel besked. Beregningstiden på omkring 0,35 ms viser også, at Photon 2 har rigeligt med kræfter til denne model.
 
-Den største trussel mod validitet er datasættets størrelse og struktur. Fem trials pr. klasse fra én bruger og én tæt session beskriver ikke variation mellem dage, montage eller personer. Testsplitten deler samme session mellem train og test og kan derfor overvurdere generalisering. En stærkere evaluering ville indsamle mindst tre uafhængige sessioner og holde en hel session ude.
+Den største svaghed er mængden af data. Fem forsøg pr. klasse fra én person på samme dag siger ikke meget om andre personer, andre dage eller en lidt anderledes placering af sensoren. Trænings- og testdata kommer også fra samme session, så resultatet kan se bedre ud, end det ville gøre i virkeligheden. En bedre test ville bruge mindst tre forskellige sessioner og gemme en hel session til den endelige test.
 
-400 Hz forbedrer synligheden af impacts, men firesekunders buffer giver højere opstartstid og holder en gestus i vinduet længe. Debounce forhindrer gentagne events, men sænker maksimal interaktionsrate. En fremtidig event-triggered 1–2 sekunders model kunne reducere latency uden at miste impact-forløbet.
+400 Hz gør de hurtige slag langt tydeligere, men fire sekunders buffer betyder også, at systemet først skal fyldes op, og at en gammel gestus bliver i dataene et stykke tid. Pausen på fire sekunder forhindrer dobbeltregistrering, men gør samtidig systemet langsommere at bruge. En senere version kunne starte et kortere vindue, når der opdages bevægelse.
 
-Hybrid-guard'en er pragmatisk og fagligt forsvarlig, når den beskrives korrekt: MLP'en løser den ikke-lineære femklasse-repræsentation, mens event count anvendes som sikkerhedsconstraint på en kendt ordinal delopgave. Hvis guard'en alene kunne løse hele opgaven, ville det stride mod projektets ML-formål; den kan imidlertid ikke pålideligt skelne idle, tap og lateral shake under bred variation.
+Kombinationen af model og slag-tæller er et praktisk valg. Modellen tager sig af det samlede bevægelsesmønster, mens tælleren hjælper med forskellen mellem ét, to og tre slag. Tælleren kan ikke alene skelne sikkert mellem idle, tap og shake i alle situationer, så projektet er stadig en ML-løsning og ikke blot nogle få faste regler.
 
 = Konklusion
 
-Projektet opfylder kursets centrale artefaktkrav: Photon 2, lokal ADXL343-sensor, egne labeled data, preprocessing, en trænet multiclass-MLP, lokal inference og observerbart serial-/LED-output. Den endelige baseline indeholder 25 balancerede accepterede 400 Hz-vinduer. Offline-splitten nåede 80 % accuracy, firmware brugte 27.950 B flash og 46.686 B RAM, og den rene inference tog omkring 0,35 ms. LIVE blev kompileret, flashet og fysisk verificeret.
+Projektet opfylder kursets vigtigste krav: Photon 2, en lokal ADXL343-sensor, egne mærkede data, behandling af signalet, en trænet femklasses MLP, beregning direkte på enheden og synligt output over USB og LED. Det endelige datasæt har 25 godkendte 400 Hz-optagelser. Testen gav 80 %, firmwaren brugte 27.950 B flash og 46.686 B RAM, og selve modellen tog omkring 0,35 ms. LIVE blev bygget, lagt på enheden og prøvet fysisk.
 
-Resultatet er en fungerende prototype, ikke en dokumentation af brugeruafhængig robusthed. Den korrekte faglige konklusion er derfor, at systemets arkitektur og deployment er bevist, mens generalisering, false-trigger-rate og længerevarende stabilitet kræver et større session-adskilt datasæt og en formaliseret live-test.
+Resultatet er en fungerende prototype, men ikke et bevis på, at alle brugere kan få samme resultat. Jeg har vist, at hele systemet kan bygges og køre på Photon 2. Hvis løsningen skulle udvikles videre, skulle der samles mere data på forskellige dage og fra flere personer. Der skulle også laves en længere test af fejludløsninger og stabilitet.
 
 = Fremtidigt arbejde
 
-Prioriteret videre arbejde er: (1) flere sessioner og brugere, (2) session-held-out evaluering, (3) tidsbestemt idle false-trigger-test, (4) golden-vector parity-test mellem Python og C++, (5) kortere event-triggered vinduer og (6) først derefter BLE-integration eller sensorfusion. Kvantisering er ikke nødvendig for at passe på Photon 2, men kan bruges som et kursusrelevant optimeringseksperiment.
+De næste forbedringer ville være: flere brugere og optagedage, en test på en helt ny session, en længere idle-test, en direkte sammenligning af Python- og C++-beregninger og et kortere vindue, som starter ved bevægelse. Derefter kunne BLE eller en ekstra sensor overvejes. Modellen behøver ikke kvantisering for at kunne være på Photon 2, men det kunne være et interessant optimeringsforsøg.
 
-#set text(size: 9.2pt)
+#set text(size: 8.3pt)
 = Referencer
 
-#set par(hanging-indent: 1.2em, spacing: 0.55em)
+#set par(hanging-indent: 1.2em, spacing: 0.35em)
 
 [1] Aarhus Universitet. (2026). *Welcome to TinyML—ETTML-01 Tiny Machine Learning* [kursusmateriale]. Brightspace, lokal PDF-kopi.
 
@@ -303,6 +307,10 @@ Prioriteret videre arbejde er: (1) flere sessioner og brugere, (2) session-held-
 [8] Pedregosa, F., et al. (2011). Scikit-learn: Machine learning in Python. *Journal of Machine Learning Research, 12*, 2825–2830.
 
 [9] Raschka, S., Liu, Y., & Mirjalili, V. (2022). *Machine Learning with PyTorch and Scikit-Learn*. Packt.
+
+[10] Blackbox AI Technologies Inc. (2026). *BlackBox AI—Agents and developer tools*. #link("https://www.blackbox.ai/")[Officiel hjemmeside].
+
+[11] OpenAI. (2026). *Codex—AI coding agent*. #link("https://developers.openai.com/")[Officiel OpenAI-dokumentation].
 
 #pagebreak()
 #set text(size: 9.5pt)
@@ -360,4 +368,6 @@ CSV-felterne er `time_us`, `x_g`, `y_g`, `z_g`, afledt tid/delta/magnitude, `lab
 
 = Appendiks D: Værktøjer og AI-assistance
 
-Python 3.12, NumPy, pandas, scikit-learn, PyYAML, pyserial og Matplotlib blev brugt til data- og ML-pipelinen. Particle CLI/Device OS blev brugt til build og flash; Typst blev brugt til PDF. Codex og tidligere BlackBox AI blev anvendt til kode-/tekstassistance, fejlsøgning og strukturering. AI-output blev ikke behandlet som måledata eller faglig kilde; claims er kontrolleret mod source, datasæt, build-output, hardwarestatus og de anførte primærkilder. `MLPClassifier` og `StandardScaler` er softwarekomponenter, ikke AI-assistenter.
+Python 3.12, NumPy, pandas, scikit-learn, PyYAML, pyserial og Matplotlib blev brugt til data og modeltræning. Particle CLI/Device OS blev brugt til at bygge og lægge firmwaren på enheden, og Typst blev brugt til PDF'en.
+
+BlackBox AI og OpenAI Codex blev brugt som AI-assistenter til forslag til kode, fejlsøgning, oprydning, dokumentation og sproglig redigering [10], [11]. De fysiske målinger, valg af gestusser og den endelige vurdering er mine. Forslag fra AI blev kontrolleret ved at læse koden, se på datasættet, køre træning og build samt afprøve Photon 2. AI-værktøjerne er derfor hjælpemidler og ikke kilder til projektets måleresultater. `MLPClassifier` og `StandardScaler` er dele af programmet og ikke AI-assistenter.
