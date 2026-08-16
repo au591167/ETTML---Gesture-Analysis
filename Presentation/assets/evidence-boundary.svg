@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs><style>.t{font:700 44px Arial;fill:#0f172a}.h{font:700 30px Arial;fill:#0f172a}.p{font:23px Arial;fill:#334155}.card{stroke-width:4;rx:24}.check{font:700 28px Arial;fill:#15803d}.cross{font:700 28px Arial;fill:#b91c1c}</style></defs>
+  <rect width="1600" height="900" fill="#f8fafc"/><text x="800" y="75" text-anchor="middle" class="t">Hvad projektets evidens viser – og ikke viser</text>
+  <rect x="65" y="125" width="710" height="640" fill="#ecfdf5" stroke="#16a34a" class="card"/><text x="420" y="190" text-anchor="middle" class="h">Dokumenteret</text>
+  <text x="125" y="270" class="check">✓</text><text x="180" y="270" class="p">Sensoren leverer synkroniseret XYZ ved 400 Hz</text>
+  <text x="125" y="345" class="check">✓</text><text x="180" y="345" class="p">Egne labellede data bliver behandlet</text>
+  <text x="125" y="420" class="check">✓</text><text x="180" y="420" class="p">Scaler + MLP kører lokalt i C++</text>
+  <text x="125" y="495" class="check">✓</text><text x="180" y="495" class="p">4 af 5 held-out-optagelser var korrekte</text>
+  <text x="125" y="570" class="check">✓</text><text x="180" y="570" class="p">Forward-pass tog cirka 0,35 ms</text>
+  <text x="125" y="645" class="check">✓</text><text x="180" y="645" class="p">EVENT og RGB blev fysisk verificeret</text>
+  <rect x="825" y="125" width="710" height="640" fill="#fef2f2" stroke="#dc2626" class="card"/><text x="1180" y="190" text-anchor="middle" class="h">Ikke dokumenteret</text>
+  <text x="885" y="270" class="cross">×</text><text x="940" y="270" class="p">Stabil accuracy for nye personer</text>
+  <text x="885" y="345" class="cross">×</text><text x="940" y="345" class="p">Robusthed på nye optagedage og monteringer</text>
+  <text x="885" y="420" class="cross">×</text><text x="940" y="420" class="p">En blind fysisk accuracy-test</text>
+  <text x="885" y="495" class="cross">×</text><text x="940" y="495" class="p">Langtidsrate for false triggers under idle</text>
+  <text x="885" y="570" class="cross">×</text><text x="940" y="570" class="p">Målt energiforbrug</text>
+  <text x="885" y="645" class="cross">×</text><text x="940" y="645" class="p">Python/C++ feature-paritet med automatisk test</text>
+  <text x="800" y="835" text-anchor="middle" class="h">Stærk konklusion: fungerende prototype – begrænset generaliseringsevidens</text>
+</svg>

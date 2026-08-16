@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs><style>.t{font:700 44px Arial;fill:#0f172a}.h{font:700 26px Arial;fill:#0f172a}.p{font:21px Arial;fill:#334155}.check{font:700 34px Arial;fill:#15803d}.card{fill:#fff;stroke:#cbd5e1;stroke-width:3;rx:20}</style></defs>
+  <rect width="1600" height="900" fill="#f8fafc"/><text x="800" y="70" text-anchor="middle" class="t">Sporbarhed fra kursuskrav til konkret evidens</text>
+  <g transform="translate(65 125)">
+    <rect width="710" height="135" class="card"/><text x="35" y="75" class="check">✓</text><text x="95" y="55" class="h">Embedded platform</text><text x="95" y="95" class="p">Particle Photon 2 · kompileret og flashed firmware</text>
+    <rect x="760" width="710" height="135" class="card"/><text x="795" y="75" class="check">✓</text><text x="855" y="55" class="h">Lokal sensor</text><text x="855" y="95" class="p">ADXL343 over I2C · device-ID og read-error-kontrol</text>
+    <rect y="165" width="710" height="135" class="card"/><text x="35" y="240" class="check">✓</text><text x="95" y="220" class="h">Egne labellede data</text><text x="95" y="260" class="p">25 accepterede CSV'er + JSON-metadata + rejected audit-data</text>
+    <rect x="760" y="165" width="710" height="135" class="card"/><text x="795" y="240" class="check">✓</text><text x="855" y="220" class="h">Preprocessing</text><text x="855" y="260" class="p">mean removal · magnitude · 28 statistiske features</text>
+    <rect y="330" width="710" height="135" class="card"/><text x="35" y="405" class="check">✓</text><text x="95" y="385" class="h">ML-algoritme</text><text x="95" y="425" class="p">StandardScaler + MLP 28–32–16–5</text>
+    <rect x="760" y="330" width="710" height="135" class="card"/><text x="795" y="405" class="check">✓</text><text x="855" y="385" class="h">Lokal prediction</text><text x="855" y="425" class="p">float32 C++ forward-pass + softmax på Photon 2</text>
+    <rect y="495" width="710" height="135" class="card"/><text x="35" y="570" class="check">✓</text><text x="95" y="550" class="h">Observerbart output</text><text x="95" y="590" class="p">STATUS · EVENT · blackjack-kommando · RGB-feedback</text>
+    <rect x="760" y="495" width="710" height="135" class="card"/><text x="795" y="570" class="check">✓</text><text x="855" y="550" class="h">Delbar dokumentation</text><text x="855" y="590" class="p">offentligt repository · kode · data · rapport · hardware</text>
+  </g>
+  <text x="800" y="825" text-anchor="middle" class="p">Kravopfyldelse dokumenterer projektets scope – ikke automatisk modellens generalisering</text>
+</svg>

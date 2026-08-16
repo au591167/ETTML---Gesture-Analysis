@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#334155"/></marker><style>.t{font:700 44px Arial;fill:#0f172a}.h{font:700 29px Arial;fill:#0f172a}.p{font:22px Arial;fill:#334155}.math{font:32px Cambria Math,serif;fill:#0f172a}.axis{stroke:#475569;stroke-width:4}.l{stroke:#334155;stroke-width:5;marker-end:url(#a)}</style></defs>
+  <rect width="1600" height="900" fill="#f8fafc"/><text x="800" y="75" text-anchor="middle" class="t">StandardScaler gør features numerisk sammenlignelige</text>
+  <g transform="translate(90 170)">
+    <text x="300" y="30" text-anchor="middle" class="h">Før skalering</text><line x1="50" y1="430" x2="550" y2="430" class="axis"/><line x1="50" y1="80" x2="50" y2="430" class="axis"/>
+    <g fill="#2563eb"><circle cx="90" cy="380" r="10"/><circle cx="115" cy="350" r="10"/><circle cx="140" cy="365" r="10"/><circle cx="170" cy="325" r="10"/><circle cx="200" cy="340" r="10"/></g><text x="145" y="475" text-anchor="middle" class="p">peak count: 0–20</text>
+    <g fill="#dc2626"><circle cx="310" cy="260" r="10"/><circle cx="360" cy="205" r="10"/><circle cx="410" cy="230" r="10"/><circle cx="470" cy="150" r="10"/><circle cx="520" cy="180" r="10"/></g><text x="415" y="515" text-anchor="middle" class="p">energi: større talområde</text>
+    <line x1="620" y1="255" x2="790" y2="255" class="l"/><text x="705" y="215" text-anchor="middle" class="math">z = (x − μ) / σ</text>
+    <text x="1120" y="30" text-anchor="middle" class="h">Efter skalering</text><line x1="870" y1="430" x2="1370" y2="430" class="axis"/><line x1="1120" y1="80" x2="1120" y2="480" class="axis"/>
+    <g fill="#2563eb"><circle cx="980" cy="360" r="10"/><circle cx="1040" cy="310" r="10"/><circle cx="1090" cy="340" r="10"/><circle cx="1160" cy="280" r="10"/><circle cx="1220" cy="320" r="10"/></g><g fill="#dc2626"><circle cx="975" cy="245" r="10"/><circle cx="1045" cy="205" r="10"/><circle cx="1100" cy="230" r="10"/><circle cx="1170" cy="170" r="10"/><circle cx="1235" cy="215" r="10"/></g>
+    <text x="1120" y="520" text-anchor="middle" class="p">hver feature centreret omkring 0 og skaleret med sin egen σ</text>
+  </g>
+  <rect x="330" y="710" width="940" height="100" fill="#fff7ed" stroke="#ea580c" stroke-width="3" rx="20"/><text x="800" y="753" text-anchor="middle" class="h">Fit kun på træningsdata</text><text x="800" y="790" text-anchor="middle" class="p">de lærte μ- og σ-værdier genbruges på testdata og i C++</text>
+</svg>

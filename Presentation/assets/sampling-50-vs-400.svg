@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs><style>.t{font:700 44px Arial;fill:#0f172a}.h{font:700 29px Arial;fill:#0f172a}.p{font:22px Arial;fill:#334155}.axis{stroke:#475569;stroke-width:3}.signal{fill:none;stroke:#dc2626;stroke-width:6}.sample50{fill:#2563eb}.sample400{fill:#16a34a}.card{fill:#fff;stroke:#cbd5e1;stroke-width:3;rx:22}</style></defs>
+  <rect width="1600" height="900" fill="#f8fafc"/><text x="800" y="70" text-anchor="middle" class="t">Hvorfor 50 Hz kunne overse et hurtigt tap</text>
+  <g transform="translate(70 125)">
+    <rect width="1460" height="270" class="card"/><text x="120" y="55" class="h">50 Hz</text><text x="1360" y="55" text-anchor="end" class="p">20 ms mellem samples</text>
+    <line x1="120" y1="205" x2="1360" y2="205" class="axis"/><path d="M120 205 L835 205 C860 205 875 35 895 35 C915 35 930 205 955 205 L1360 205" class="signal"/>
+    <g class="sample50"><circle cx="120" cy="205" r="10"/><circle cx="430" cy="205" r="10"/><circle cx="740" cy="205" r="10"/><circle cx="1050" cy="205" r="10"/><circle cx="1360" cy="205" r="10"/></g>
+    <text x="740" y="245" text-anchor="middle" class="p">Et uheldigt sample-grid kan ramme ved siden af den smalle impuls</text>
+  </g>
+  <g transform="translate(70 455)">
+    <rect width="1460" height="270" class="card"/><text x="120" y="55" class="h">400 Hz</text><text x="1360" y="55" text-anchor="end" class="p">2,5 ms mellem samples</text>
+    <line x1="120" y1="205" x2="1360" y2="205" class="axis"/><path d="M120 205 L835 205 C860 205 875 35 895 35 C915 35 930 205 955 205 L1360 205" class="signal"/>
+    <g class="sample400"><circle cx="120" cy="205" r="7"/><circle cx="198" cy="205" r="7"/><circle cx="276" cy="205" r="7"/><circle cx="354" cy="205" r="7"/><circle cx="432" cy="205" r="7"/><circle cx="510" cy="205" r="7"/><circle cx="588" cy="205" r="7"/><circle cx="666" cy="205" r="7"/><circle cx="744" cy="205" r="7"/><circle cx="822" cy="205" r="7"/><circle cx="861" cy="115" r="7"/><circle cx="885" cy="47" r="7"/><circle cx="909" cy="67" r="7"/><circle cx="933" cy="180" r="7"/><circle cx="978" cy="205" r="7"/><circle cx="1056" cy="205" r="7"/><circle cx="1134" cy="205" r="7"/><circle cx="1212" cy="205" r="7"/><circle cx="1290" cy="205" r="7"/><circle cx="1360" cy="205" r="7"/></g>
+    <text x="740" y="245" text-anchor="middle" class="p">Flere målepunkter beskriver impulsens form og maksimum bedre</text>
+  </g>
+  <text x="800" y="815" text-anchor="middle" class="p">Illustration af samplingprincippet · den konkrete beslutning blev også understøttet af projektets 400 Hz-målinger</text>
+</svg>

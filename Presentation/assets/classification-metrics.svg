@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs><style>.t{font:700 44px Arial;fill:#0f172a}.h{font:700 27px Arial;fill:#0f172a}.p{font:21px Arial;fill:#334155}.math{font:25px Cambria Math,serif;fill:#0f172a}.cell{stroke:#fff;stroke-width:5}</style></defs>
+  <rect width="1600" height="900" fill="#f8fafc"/><text x="800" y="70" text-anchor="middle" class="t">Precision, recall og F1 for én klasse ad gangen</text>
+  <g transform="translate(90 150)">
+    <text x="360" y="25" text-anchor="middle" class="h">Forudsagt positiv</text><text x="650" y="25" text-anchor="middle" class="h">Forudsagt negativ</text><text x="30" y="190" transform="rotate(-90 30 190)" text-anchor="middle" class="h">Faktisk positiv</text><text x="30" y="490" transform="rotate(-90 30 490)" text-anchor="middle" class="h">Faktisk negativ</text>
+    <rect x="190" y="70" width="290" height="260" fill="#bbf7d0" class="cell"/><text x="335" y="180" text-anchor="middle" class="h">True positive</text><text x="335" y="225" text-anchor="middle" class="p">rigtig klasse fundet</text>
+    <rect x="480" y="70" width="290" height="260" fill="#fecaca" class="cell"/><text x="625" y="180" text-anchor="middle" class="h">False negative</text><text x="625" y="225" text-anchor="middle" class="p">klassen blev overset</text>
+    <rect x="190" y="330" width="290" height="260" fill="#fed7aa" class="cell"/><text x="335" y="440" text-anchor="middle" class="h">False positive</text><text x="335" y="485" text-anchor="middle" class="p">falsk alarm</text>
+    <rect x="480" y="330" width="290" height="260" fill="#dbeafe" class="cell"/><text x="625" y="440" text-anchor="middle" class="h">True negative</text><text x="625" y="485" text-anchor="middle" class="p">korrekt afvist</text>
+  </g>
+  <g transform="translate(930 180)">
+    <rect width="570" height="145" fill="#fff" stroke="#2563eb" stroke-width="3" rx="18"/><text x="285" y="48" text-anchor="middle" class="h">Precision</text><text x="285" y="90" text-anchor="middle" class="math">TP / (TP + FP)</text><text x="285" y="125" text-anchor="middle" class="p">Hvor rene var de positive predictions?</text>
+    <rect y="180" width="570" height="145" fill="#fff" stroke="#16a34a" stroke-width="3" rx="18"/><text x="285" y="228" text-anchor="middle" class="h">Recall</text><text x="285" y="270" text-anchor="middle" class="math">TP / (TP + FN)</text><text x="285" y="305" text-anchor="middle" class="p">Hvor mange virkelige positive fandt modellen?</text>
+    <rect y="360" width="570" height="145" fill="#fff" stroke="#7c3aed" stroke-width="3" rx="18"/><text x="285" y="408" text-anchor="middle" class="h">F1-score</text><text x="285" y="450" text-anchor="middle" class="math">2PR / (P + R)</text><text x="285" y="485" text-anchor="middle" class="p">Harmonisk balance mellem precision og recall</text>
+  </g>
+  <text x="800" y="820" text-anchor="middle" class="p">Ved macro average beregnes metricen for hver klasse, hvorefter alle fem klasser vægtes lige</text>
+</svg>

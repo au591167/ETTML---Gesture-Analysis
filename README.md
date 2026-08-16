@@ -30,7 +30,24 @@ The complete academic report is available as
 | [`Product/data/`](Product/data/) | Deploy dataset, diagnostics, and archived baselines |
 | [`docs/`](docs/) | Architecture, hardware, verification, and historical documentation |
 | [`Report/`](Report/) | Submission PDF, Typst source, and report figures |
+| [`Presentation/`](Presentation/) | Final exam deck, tablet notes, visual assets, and deck generator |
 | [`Project Planning/`](Project%20Planning/) | Supplied course material and reference books |
+
+## One-click Photon 2 demo
+
+On Windows, connect the Photon 2 and double-click
+[`START-PHOTON2-DEMO.cmd`](START-PHOTON2-DEMO.cmd). The script validates the
+embedded model, compiles the Photon 2 firmware, flashes it over USB, sends
+`MODE LIVE`, and confirms that the device entered LIVE mode.
+
+To activate an already-flashed device without rebuilding:
+
+```powershell
+.\Start-Photon2-Demo.ps1 -ActivateOnly
+```
+
+See the [one-click deployment guide](docs/deployment/one-click-photon2-demo.md)
+for checks and alternative parameters.
 
 ## Reproduce
 

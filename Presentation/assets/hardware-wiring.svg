@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs><style>.t{font:700 44px Arial;fill:#0f172a}.h{font:700 30px Arial;fill:#0f172a}.p{font:23px Arial;fill:#334155}.pin{font:700 22px Consolas;fill:#0f172a}.board{stroke-width:4;rx:28}.wire{stroke-width:9;fill:none}</style></defs>
+  <rect width="1600" height="900" fill="#f8fafc"/><text x="800" y="70" text-anchor="middle" class="t">Photon 2 og ADXL343 over I2C</text>
+  <rect x="120" y="150" width="500" height="550" fill="#e0f2fe" stroke="#0284c7" class="board"/><text x="370" y="220" text-anchor="middle" class="h">Particle Photon 2</text>
+  <rect x="980" y="150" width="500" height="550" fill="#fee2e2" stroke="#dc2626" class="board"/><text x="1230" y="220" text-anchor="middle" class="h">ADXL343 breakout</text>
+  <g class="pin"><text x="590" y="320" text-anchor="end">3V3</text><text x="590" y="420" text-anchor="end">GND</text><text x="590" y="520" text-anchor="end">D0 / SDA</text><text x="590" y="620" text-anchor="end">D1 / SCL</text><text x="1010" y="320">VCC</text><text x="1010" y="420">GND</text><text x="1010" y="520">SDA</text><text x="1010" y="620">SCL</text></g>
+  <path d="M620 312 C760 312 840 312 980 312" stroke="#ef4444" class="wire"/><path d="M620 412 C760 412 840 412 980 412" stroke="#111827" class="wire"/><path d="M620 512 C760 512 840 512 980 512" stroke="#2563eb" class="wire"/><path d="M620 612 C760 612 840 612 980 612" stroke="#f59e0b" class="wire"/>
+  <g class="p" text-anchor="middle"><text x="800" y="292">3,3 V forsyning</text><text x="800" y="392">fælles reference</text><text x="800" y="492">seriel data</text><text x="800" y="592">clock</text></g>
+  <text x="800" y="770" text-anchor="middle" class="h">Opstartskontrol</text><text x="800" y="815" text-anchor="middle" class="p">prøv adresse 0x53 og 0x1D → læs device-ID 0xE5 → vis sensorstatus</text>
+</svg>

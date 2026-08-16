@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs><style>.t{font:700 44px Arial;fill:#0f172a}.h{font:700 28px Arial;fill:#0f172a}.p{font:21px Arial;fill:#334155}.box{stroke:#fff;stroke-width:3;rx:8}.frame{fill:#fff;stroke:#cbd5e1;stroke-width:3;rx:22}</style></defs>
+  <rect width="1600" height="900" fill="#f8fafc"/><text x="800" y="65" text-anchor="middle" class="t">Evaluering på et meget lille datasæt</text>
+  <rect x="55" y="110" width="1490" height="290" class="frame"/><text x="110" y="160" class="h">Stratificeret 80/20-split</text><text x="1420" y="160" text-anchor="end" class="p">seed 42 · én testoptagelse per klasse</text>
+  <g transform="translate(120 205)">
+    <g fill="#bfdbfe"><rect x="0" width="45" height="45" class="box"/><rect x="55" width="45" height="45" class="box"/><rect x="110" width="45" height="45" class="box"/><rect x="165" width="45" height="45" class="box"/></g><rect x="220" width="45" height="45" fill="#2563eb" class="box"/>
+    <g fill="#bbf7d0"><rect x="300" width="45" height="45" class="box"/><rect x="355" width="45" height="45" class="box"/><rect x="410" width="45" height="45" class="box"/><rect x="465" width="45" height="45" class="box"/></g><rect x="520" width="45" height="45" fill="#16a34a" class="box"/>
+    <g fill="#fde68a"><rect x="600" width="45" height="45" class="box"/><rect x="655" width="45" height="45" class="box"/><rect x="710" width="45" height="45" class="box"/><rect x="765" width="45" height="45" class="box"/></g><rect x="820" width="45" height="45" fill="#d97706" class="box"/>
+    <g fill="#ddd6fe"><rect x="900" width="45" height="45" class="box"/><rect x="955" width="45" height="45" class="box"/><rect x="1010" width="45" height="45" class="box"/><rect x="1065" width="45" height="45" class="box"/></g><rect x="1120" width="45" height="45" fill="#7c3aed" class="box"/>
+    <g fill="#fecaca"><rect x="1200" width="45" height="45" class="box"/><rect x="1255" width="45" height="45" class="box"/><rect x="1310" width="45" height="45" class="box"/><rect x="1365" width="45" height="45" class="box"/></g><rect x="1420" width="45" height="45" fill="#dc2626" class="box"/>
+  </g>
+  <text x="490" y="330" text-anchor="middle" class="h">20 train</text><text x="1110" y="330" text-anchor="middle" class="h">5 test · 4 korrekte = 80 %</text>
+  <rect x="55" y="445" width="1490" height="340" class="frame"/><text x="110" y="500" class="h">Stratificeret 5-fold cross-validation</text><text x="1420" y="500" text-anchor="end" class="p">shuffle + seed 42 · fold-scores 60 · 60 · 100 · 80 · 80 %</text>
+  <g transform="translate(170 535)">
+    <rect width="1250" height="42" fill="#dbeafe" rx="8"/><rect width="250" height="42" fill="#2563eb" rx="8"/><text x="125" y="29" text-anchor="middle" fill="#fff" class="p">fold 1 test</text>
+    <rect y="48" width="1250" height="42" fill="#dcfce7" rx="8"/><rect x="250" y="48" width="250" height="42" fill="#16a34a" rx="8"/><text x="375" y="77" text-anchor="middle" fill="#fff" class="p">fold 2 test</text>
+    <rect y="96" width="1250" height="42" fill="#fef3c7" rx="8"/><rect x="500" y="96" width="250" height="42" fill="#d97706" rx="8"/><text x="625" y="125" text-anchor="middle" fill="#fff" class="p">fold 3 test</text>
+    <rect y="144" width="1250" height="42" fill="#ede9fe" rx="8"/><rect x="750" y="144" width="250" height="42" fill="#7c3aed" rx="8"/><text x="875" y="173" text-anchor="middle" fill="#fff" class="p">fold 4 test</text>
+    <rect y="192" width="1250" height="42" fill="#fee2e2" rx="8"/><rect x="1000" y="192" width="250" height="42" fill="#dc2626" rx="8"/><text x="1125" y="221" text-anchor="middle" fill="#fff" class="p">fold 5 test</text>
+  </g>
+  <text x="800" y="835" text-anchor="middle" class="p">Cross-validation bruger data bedre, men skaber ikke nye personer eller sessioner</text>
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#334155"/></marker>
+    <style>.title{font:700 46px Arial;fill:#0f172a}.h{font:700 28px Arial;fill:#0f172a}.p{font:22px Arial;fill:#334155}.box{stroke-width:3;rx:24}.arrow{stroke:#334155;stroke-width:5;marker-end:url(#arrow)}</style>
+  </defs>
+  <rect width="1600" height="900" fill="#f8fafc"/>
+  <text x="800" y="100" text-anchor="middle" class="title">Fra fysisk bevægelse til lokal handling</text>
+  <g transform="translate(55 285)">
+    <rect class="box" width="230" height="210" fill="#dbeafe" stroke="#2563eb"/>
+    <text x="115" y="75" text-anchor="middle" class="h">ADXL343</text><text x="115" y="120" text-anchor="middle" class="p">X, Y, Z</text><text x="115" y="155" text-anchor="middle" class="p">400 Hz</text>
+    <line x1="230" y1="105" x2="305" y2="105" class="arrow"/>
+    <rect x="320" class="box" width="230" height="210" fill="#dcfce7" stroke="#16a34a"/>
+    <text x="435" y="75" text-anchor="middle" class="h">Vindue</text><text x="435" y="120" text-anchor="middle" class="p">4 sekunder</text><text x="435" y="155" text-anchor="middle" class="p">1.600 samples</text>
+    <line x1="550" y1="105" x2="625" y2="105" class="arrow"/>
+    <rect x="640" class="box" width="230" height="210" fill="#fef3c7" stroke="#d97706"/>
+    <text x="755" y="75" text-anchor="middle" class="h">Features</text><text x="755" y="120" text-anchor="middle" class="p">4 kanaler × 7</text><text x="755" y="155" text-anchor="middle" class="p">28 input</text>
+    <line x1="870" y1="105" x2="945" y2="105" class="arrow"/>
+    <rect x="960" class="box" width="230" height="210" fill="#ede9fe" stroke="#7c3aed"/>
+    <text x="1075" y="75" text-anchor="middle" class="h">Model</text><text x="1075" y="120" text-anchor="middle" class="p">StandardScaler</text><text x="1075" y="155" text-anchor="middle" class="p">MLP + softmax</text>
+    <line x1="1190" y1="105" x2="1265" y2="105" class="arrow"/>
+    <rect x="1280" class="box" width="210" height="210" fill="#fee2e2" stroke="#dc2626"/>
+    <text x="1385" y="65" text-anchor="middle" class="h">Handling</text><text x="1385" y="112" text-anchor="middle" class="p">Beslutningsfilter</text><text x="1385" y="150" text-anchor="middle" class="p">EVENT + RGB</text>
+  </g>
+  <text x="800" y="660" text-anchor="middle" class="h">Inference foregår lokalt på Photon 2</text>
+  <text x="800" y="710" text-anchor="middle" class="p">Ingen cloud er nødvendig for klassifikationen</text>
+</svg>

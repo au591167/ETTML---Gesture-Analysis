@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs><style>.t{font:700 44px Arial;fill:#0f172a}.h{font:700 28px Arial;fill:#0f172a}.p{font:22px Arial;fill:#334155}.axis{stroke:#334155;stroke-width:4}.win{stroke-width:4;rx:18}</style></defs>
+  <rect width="1600" height="900" fill="#f8fafc"/><text x="800" y="75" text-anchor="middle" class="t">Firesekunders sliding window med 0,25 s stride</text>
+  <line x1="130" y1="190" x2="1470" y2="190" class="axis"/>
+  <g class="p" text-anchor="middle"><text x="130" y="155">0 s</text><text x="715" y="155">2 s</text><text x="1300" y="155">4 s</text><text x="1373" y="155">4,25</text><text x="1446" y="155">4,5</text></g>
+  <g stroke="#94a3b8" stroke-width="3"><line x1="130" y1="175" x2="130" y2="210"/><line x1="715" y1="175" x2="715" y2="210"/><line x1="1300" y1="175" x2="1300" y2="210"/><line x1="1373" y1="175" x2="1373" y2="210"/><line x1="1446" y1="175" x2="1446" y2="210"/></g>
+  <rect x="130" y="260" width="1170" height="120" fill="#dbeafe" stroke="#2563eb" class="win"/><text x="715" y="315" text-anchor="middle" class="h">Vindue 1 · samples 0–1.599</text><text x="715" y="350" text-anchor="middle" class="p">første inference efter cirka 4 sekunders opsamling</text>
+  <rect x="203" y="430" width="1170" height="120" fill="#dcfce7" stroke="#16a34a" class="win"/><text x="788" y="485" text-anchor="middle" class="h">Vindue 2 · behold 1.500 + tilføj 100</text><text x="788" y="520" text-anchor="middle" class="p">ny inference 0,25 sekund senere</text>
+  <rect x="276" y="600" width="1170" height="120" fill="#fef3c7" stroke="#d97706" class="win"/><text x="861" y="655" text-anchor="middle" class="h">Vindue 3 · endnu 100 nye samples</text><text x="861" y="690" text-anchor="middle" class="p">gestussen overlapper flere vinduer</text>
+  <text x="800" y="815" text-anchor="middle" class="p">Fordel: hyppige predictions · Tradeoff: stærkt overlappende vinduer og længere samlet beslutningskæde</text>
+</svg>

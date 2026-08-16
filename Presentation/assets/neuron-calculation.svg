@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#334155"/></marker><style>.t{font:700 44px Arial;fill:#0f172a}.h{font:700 29px Arial;fill:#0f172a}.p{font:23px Arial;fill:#334155}.math{font:30px Cambria Math,serif;fill:#0f172a}.l{stroke:#334155;stroke-width:5;marker-end:url(#a)}.c{stroke-width:4}</style></defs>
+  <rect width="1600" height="900" fill="#f8fafc"/><text x="800" y="75" text-anchor="middle" class="t">En neuron er en matematisk beregning</text>
+  <g transform="translate(100 180)">
+    <circle cx="150" cy="100" r="62" fill="#dbeafe" stroke="#2563eb" class="c"/><text x="150" y="92" text-anchor="middle" class="h">x₁</text><text x="150" y="125" text-anchor="middle" class="p">energi</text>
+    <circle cx="150" cy="300" r="62" fill="#dcfce7" stroke="#16a34a" class="c"/><text x="150" y="292" text-anchor="middle" class="h">x₂</text><text x="150" y="325" text-anchor="middle" class="p">peaks</text>
+    <circle cx="150" cy="500" r="62" fill="#fef3c7" stroke="#d97706" class="c"/><text x="150" y="482" text-anchor="middle" style="font:700 24px Arial;fill:#0f172a">x₃ … x₂₈</text><text x="150" y="516" text-anchor="middle" style="font:19px Arial;fill:#334155">andre</text><text x="150" y="541" text-anchor="middle" style="font:19px Arial;fill:#334155">features</text>
+    <line x1="212" y1="100" x2="505" y2="250" class="l"/><line x1="212" y1="300" x2="505" y2="300" class="l"/><line x1="212" y1="500" x2="505" y2="350" class="l"/>
+    <text x="355" y="160" class="p">× w₁</text><text x="355" y="280" class="p">× w₂</text><text x="355" y="455" class="p">× w₃ …</text>
+    <circle cx="610" cy="300" r="120" fill="#ede9fe" stroke="#7c3aed" class="c"/><text x="610" y="270" text-anchor="middle" class="h">vægtet sum</text><text x="610" y="320" text-anchor="middle" class="math">z = Σwᵢxᵢ + b</text><text x="610" y="365" text-anchor="middle" class="p">+ bias</text>
+    <line x1="730" y1="300" x2="900" y2="300" class="l"/><rect x="915" y="210" width="260" height="180" fill="#fee2e2" stroke="#dc2626" rx="25" class="c"/><text x="1045" y="275" text-anchor="middle" class="h">ReLU</text><text x="1045" y="325" text-anchor="middle" class="math">max(0, z)</text>
+    <line x1="1175" y1="300" x2="1335" y2="300" class="l"/><circle cx="1380" cy="300" r="62" fill="#cffafe" stroke="#0891b2" class="c"/><text x="1380" y="310" text-anchor="middle" class="h">output</text>
+  </g>
+  <text x="800" y="800" text-anchor="middle" class="p">Vægte og bias læres under træning · samme beregning bruges i C++-forward-pass</text>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#334155"/></marker><style>.t{font:700 46px Arial;fill:#0f172a}.h{font:700 30px Arial;fill:#0f172a}.p{font:23px Arial;fill:#334155}.b{stroke-width:3;rx:22}.l{stroke:#334155;stroke-width:5;marker-end:url(#a)}</style></defs>
+  <rect width="1600" height="900" fill="#f8fafc"/><text x="800" y="85" text-anchor="middle" class="t">Fra 4.800 XYZ-målinger til 28 features</text>
+  <g transform="translate(70 210)">
+    <rect class="b" width="280" height="430" fill="#dbeafe" stroke="#2563eb"/><text x="140" y="65" text-anchor="middle" class="h">Rå tidsserie</text><text x="140" y="125" text-anchor="middle" class="p">X: 1.600</text><text x="140" y="170" text-anchor="middle" class="p">Y: 1.600</text><text x="140" y="215" text-anchor="middle" class="p">Z: 1.600</text><text x="140" y="295" text-anchor="middle" class="p">400 Hz</text><text x="140" y="340" text-anchor="middle" class="p">4 sekunder</text>
+    <line x1="280" y1="215" x2="390" y2="215" class="l"/>
+    <rect x="405" class="b" width="300" height="430" fill="#dcfce7" stroke="#16a34a"/><text x="555" y="65" text-anchor="middle" class="h">Preprocessing</text><text x="555" y="135" text-anchor="middle" class="p">Mean removal</text><text x="555" y="195" text-anchor="middle" class="p">X, Y, Z</text><text x="555" y="270" text-anchor="middle" class="p">Magnitude</text><text x="555" y="320" text-anchor="middle" class="p">√(x²+y²+z²)</text><text x="555" y="380" text-anchor="middle" class="p">4 kanaler</text>
+    <line x1="705" y1="215" x2="815" y2="215" class="l"/>
+    <rect x="830" class="b" width="330" height="430" fill="#fef3c7" stroke="#d97706"/><text x="995" y="60" text-anchor="middle" class="h">7 per kanal</text><text x="995" y="115" text-anchor="middle" class="p">standardafvigelse</text><text x="995" y="155" text-anchor="middle" class="p">minimum · maksimum</text><text x="995" y="195" text-anchor="middle" class="p">range</text><text x="995" y="235" text-anchor="middle" class="p">energi</text><text x="995" y="275" text-anchor="middle" class="p">peak count</text><text x="995" y="315" text-anchor="middle" class="p">max abs diff</text><text x="995" y="385" text-anchor="middle" class="h">4 × 7</text>
+    <line x1="1160" y1="215" x2="1270" y2="215" class="l"/>
+    <rect x="1285" y="90" class="b" width="220" height="250" fill="#ede9fe" stroke="#7c3aed"/><text x="1395" y="175" text-anchor="middle" class="h">28</text><text x="1395" y="225" text-anchor="middle" class="p">modelinput</text>
+  </g>
+  <text x="800" y="750" text-anchor="middle" class="p">Fordel: lille og forklarligt input · Tradeoff: noget tidslig information går tabt</text>
+</svg>

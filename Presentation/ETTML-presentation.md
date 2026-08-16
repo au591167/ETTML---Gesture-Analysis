@@ -90,7 +90,7 @@
 - Magnitude samler bevægelsesstyrken på tværs af de tre akser.
 - Der beregnes standardafvigelse, minimum, maksimum, range og energi.
 - Peak count beskriver antallet af tydelige impulser, mens max abs diff beskriver bratte ændringer.
-- Feature engineering komprimerer 6.400 rå akseværdier til 28 forklarbare tal.
+- Feature engineering komprimerer 4.800 rå XYZ-målinger plus 1.600 afledte magnitudeværdier til 28 forklarbare tal.
 
 ---
 

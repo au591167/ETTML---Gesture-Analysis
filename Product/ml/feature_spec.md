@@ -5,7 +5,7 @@ This document defines the first lightweight feature set for embedded TinyML gest
 ## Window definition
 - Sampling rate: 400 Hz
 - Window length: 4.0 s (1,600 samples)
-- Stride: 0.2 s (10 samples overlap step)
+- Stride: 0.25 s (100 nye samples per step, 1,500 samples overlap)
 - Channels: `ax, ay, az` + optional magnitude `mag = sqrt(ax^2 + ay^2 + az^2)`
 
 ## Preprocessing order

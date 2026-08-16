@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <defs><style>.t{font:700 46px Arial;fill:#0f172a}.h{font:700 30px Arial;fill:#0f172a}.p{font:23px Arial;fill:#334155}.card{stroke-width:4;rx:24}</style></defs>
+  <rect width="1600" height="900" fill="#f8fafc"/><text x="800" y="75" text-anchor="middle" class="t">Fem tilstande → fire blackjack-kommandoer</text>
+  <g transform="translate(60 150)">
+    <rect width="280" height="520" fill="#f1f5f9" stroke="#64748b" class="card"/><text x="140" y="70" text-anchor="middle" class="h">idle</text><text x="140" y="165" text-anchor="middle" style="font:80px Arial">—</text><text x="140" y="280" text-anchor="middle" class="h">Ingen kommando</text><text x="140" y="340" text-anchor="middle" class="p">LED slukket</text>
+    <rect x="300" width="280" height="520" fill="#dbeafe" stroke="#2563eb" class="card"/><text x="440" y="70" text-anchor="middle" class="h">tap1</text><text x="440" y="175" text-anchor="middle" style="font:80px Arial">1×</text><text x="440" y="280" text-anchor="middle" class="h">Stand</text><text x="440" y="340" text-anchor="middle" class="p">én blå puls</text>
+    <rect x="600" width="280" height="520" fill="#bfdbfe" stroke="#1d4ed8" class="card"/><text x="740" y="70" text-anchor="middle" class="h">tap2</text><text x="740" y="175" text-anchor="middle" style="font:80px Arial">2×</text><text x="740" y="280" text-anchor="middle" class="h">Hit</text><text x="740" y="340" text-anchor="middle" class="p">to blå pulser</text>
+    <rect x="900" width="280" height="520" fill="#fee2e2" stroke="#dc2626" class="card"/><text x="1040" y="70" text-anchor="middle" class="h">tap3</text><text x="1040" y="175" text-anchor="middle" style="font:80px Arial">3×</text><text x="1040" y="280" text-anchor="middle" class="h">Exit</text><text x="1040" y="340" text-anchor="middle" class="p">tre røde pulser</text>
+    <rect x="1200" width="280" height="520" fill="#ede9fe" stroke="#7c3aed" class="card"/><text x="1340" y="70" text-anchor="middle" class="h">shake_lr</text><text x="1340" y="175" text-anchor="middle" style="font:70px Arial">↔</text><text x="1340" y="280" text-anchor="middle" class="h">Split</text><text x="1340" y="340" text-anchor="middle" class="p">rød ↔ blå</text>
+  </g>
+  <text x="800" y="760" text-anchor="middle" class="h">Output er observerbart på to måder</text><text x="800" y="805" text-anchor="middle" class="p">seriel EVENT til integration · lokal RGB-feedback til brugeren</text>
+</svg>
