@@ -89,7 +89,7 @@ def sliding_windows(
 
 
 def peak_count(x: np.ndarray) -> int:
-    """Count prominent local peaks with a five-sample refractory interval."""
+    """Count prominent local peaks with an eight-sample refractory interval."""
     amplitude = np.abs(x)
     if len(amplitude) < 3:
         return 0

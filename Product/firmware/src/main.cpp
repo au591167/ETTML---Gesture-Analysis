@@ -66,9 +66,9 @@ uint32_t gInferenceTotalUs = 0;
 uint32_t gInferenceMaxUs = 0;
 
 // ---- High-rate tap oscilloscope diagnostic ----
-// This experiment is intentionally separate from the model contract. It
-// captures only the physical Y-axis response at 400 Hz, buffers it in RAM, and
-// emits the samples afterward so Serial printing cannot disturb acquisition.
+// This experiment is intentionally separate from LIVE inference. It captures
+// synchronized X/Y/Z samples at 400 Hz, buffers them in RAM, and emits the
+// samples afterward so Serial printing cannot disturb acquisition.
 constexpr size_t kTapScopeSampleCount = 1600;      // 4.0 s at 400 Hz
 constexpr uint32_t kTapScopeIntervalUs = 2500;     // 2.5 ms
 constexpr uint32_t kTapScopeCueTimeUs = 500000;    // 0.5 s pre-cue baseline
@@ -801,9 +801,10 @@ void runBaseline() {
 
                 float m = sqrtf(ax * ax + ay * ay + az * az);
                 if (fabsf(m - (float)gMagMean) > gMotionThreshold) {
-                    // Motion detected -> seed window with pre-roll samples AND
-                    // emit them as SAMPLE lines so the host sees the full 50-sample
-                    // window (10 pre-roll + 40 live), matching training parity.
+                    // Motion detected -> seed the legacy guided-capture window
+                    // with pre-roll samples and emit them to the host. This path
+                    // polls at 50 Hz; final pilot_v3 capture uses TAP_SCOPE at
+                    // 400 Hz and the LIVE model uses the 1,600-sample contract.
                     size_t available = gPreRollCount < kPreRollCount ? gPreRollCount : kPreRollCount;
                     gWindowCount = 0;
                     for (size_t i = 0; i < available; ++i) {

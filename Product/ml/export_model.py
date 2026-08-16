@@ -394,7 +394,7 @@ def main() -> None:
     out_dir = Path(cfg["export"]["output_dir"])
     out_dir.mkdir(parents=True, exist_ok=True)
 
-# Particle project source root (where main.cpp lives). The Particle CLI
+    # Particle project source root (where main.cpp lives). The Particle CLI
     # compiles all .cpp under the project dir recursively, so the model files
     # must live ONLY in src/ to avoid duplicate-symbol link errors.
     firmware_dir = Path("Product/firmware/src")

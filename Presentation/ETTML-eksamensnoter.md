@@ -156,7 +156,7 @@ Et kort svar kan normalt bygges sådan:
 - [Recall](#recall)
 - [F1-score](#f1-score)
 - [Macro average](#macro-average)
-- [Cross-validation](#cross-validation)
+- [Cross-validation](#cross-validation-cv-fem-testrunder-med-skiftende-testdata)
 - [Projektets resultater](#projektets-resultater)
 
 ### Embedded TinyML
@@ -199,6 +199,7 @@ Et kort svar kan normalt bygges sådan:
 - [Hands-On Machine Learning](#reference-7-hands-on-machine-learning)
 - [Machine Learning with PyTorch and Scikit-Learn](#reference-9-machine-learning-with-pytorch-and-scikit-learn)
 - [Valg af kildetype](#valg-af-kildetype)
+- [Kodekort og dokumenterede henvisninger](#16-kodekort-og-dokumenterede-henvisninger)
 - [Spørgsmålszoner](#spørgsmålszoner-i-præsentationen)
 
 ---
@@ -434,11 +435,13 @@ De fem optagelser per klasse udgør et **balanceret initialt datasæt**, ikke en
 
 Optagelserne blev kvalitetstjekket for blandt andet:
 
-- præcis 1.600 samples og monotone timestamps;
+- den endelige datakontrakt på 1.600 samples og monotone timestamps;
 - manglende værdier og clipping;
 - tilstrækkelig fysisk bevægelse;
 - klassespecifik adfærd;
 - forventet impact count for `tap1`, `tap2` og `tap3`.
+
+Capture-programmet accepterer selve serieloverførslen, hvis mindst 1.584 af de forventede 1.600 samples er modtaget, så en næsten færdig overførsel kan inspiceres. De accepterede filer, der bruges i den endelige pipeline, følger 1.600-sample-kontrakten. Det er derfor vigtigt ikke at forveksle programmets transporttolerance med modellens datakontrakt.
 
 I en tidlig single-axis-diagnose blev det antaget, at et tap primært ville være synligt på en bestemt fysisk akse ud fra boardets vandrette placering. Dataanalysen viste, at sensorens fysiske akser ikke svarede til den intuitive retning i opstillingen. ADXL343 ændrer dog ikke dataorden til `X, Z, Y`: sensorregistrene og den endelige firmware bruger fortsat den faste rækkefølge `X, Y, Z`. Fejlen var fortolkningen af, hvilken fysisk retning de navngivne akser pegede i på det monterede breakout.
 
@@ -576,6 +579,16 @@ Der er lige mange optagelser fra hver klasse. Det reducerer risikoen for, at mod
 ### Kvalitetskontrol
 
 Optagelser kunne afvises ved blandt andet forkert antal taps, for meget bevægelse under idle eller utilstrækkelig shake. Afvisning forbedrer labelkvaliteten, men kan også gøre datasættet mindre repræsentativt, hvis kun meget “rene” gestusser accepteres.
+
+De automatiske gates i `randomized_capture_gui.py` er:
+
+- **Alle klasser:** afvisning ved mulig clipping, når en rå akse når mindst `15,5 g`.
+- **Idle:** accepteres kun, når dynamisk peak-magnitude er højst `0,15 g`.
+- **Tap:** største akseudslag skal være mindst `0,40 g`, og det registrerede antal impact-events skal svare til labelen.
+- **Impact-event:** dynamisk magnitude skal være mindst `0,35 g`; aktive områder med mere end `150 ms` mellemrum tælles som separate events.
+- **Shake:** dynamisk RMS skal være mindst `0,10 g`, og bevægelsen skal strække sig over mindst `300 ms`.
+
+Disse værdier er heuristiske kvalitetsgrænser til dataindsamlingen. De er ikke MLP'ens lærte beslutningsgrænser og må heller ikke forveksles med LIVE-inferencens confidence threshold på `0,75`.
 
 ### Største begrænsning
 
@@ -1613,6 +1626,161 @@ En autoencoder er et neuralt netværk, der trænes til at genskabe sit input gen
 - Hvis autoencoderen er for kraftig, kan den også blive god til at rekonstruere anomalier.
 
 **I mit projekt:** En autoencoder anvendes ikke. Projektet har labels for alle fem kendte klasser og bruger derfor supervised klassifikation.
+
+---
+
+## 16. Kodekort og dokumenterede henvisninger
+
+Dette afsnit er indgangen til hele den nuværende kodebase. Linjenumre er omtrentlige, fordi kommentarer kan flytte dem; funktionsnavnene er de stabile henvisninger. Den vigtigste sammenhæng er:
+
+`randomized_capture_gui.py` → CSV/JSON → `train.py` eller `export_model.py` → `model_data.h/.cpp` → `main.cpp` → Photon 2-output
+
+### Hvad er autoritativt, genereret og legacy?
+
+- **Autoritativ konfiguration:** `Product/ml/config.yaml` beskriver den aktuelle model- og datakontrakt.
+- **Aktiv træningsreference:** `Product/ml/train.py` er den letteste fil at læse for preprocessing, features, split, scaler, træning og metrics.
+- **Aktiv deploymentpipeline:** `Product/ml/export_model.py` gentager træningsforløbet og eksporterer den trænede model til C++.
+- **Genereret modelkode:** `Product/firmware/src/model_data.h` og `model_data.cpp` er output fra eksporten. De skal regenereres, ikke håndredigeres, når modellen ændres.
+- **Aktiv runtime:** `Product/firmware/src/main.cpp` sampler sensoren, beregner features, kalder modellen og filtrerer beslutningen.
+- **Legacy:** `Product/ml/tools/analyze-taps-legacy.py` er et tidligt analyseværktøj og er ikke en del af den endelige 28-feature-pipeline.
+- **Præsentationsværktøjer:** Koden i `Presentation/` bygger visuelle materialer, men er ikke en del af TinyML-produktets runtime.
+
+### `Product/ml/config.yaml` – den fælles kontrakt
+
+**Hvad:** Samler stier, klasser, sampling, preprocessing, features, modelarkitektur, evaluering, beslutningslogik og eksportvalg.
+
+**Vigtige aktuelle værdier:** `400 Hz`, `4,0 s`, `0,25 s` stride, syv features på fire kanaler, skjulte lag `[32, 16]`, testandel `0,2`, seed `42`, confidence `0,75`, tre stabile vinduer og `4.000 ms` debounce.
+
+**Hvorfor den er vigtig:** Hvis Python og C++ bruger forskellige værdier eller featureorden, er deployment ikke den samme modelpipeline som den evaluerede pipeline.
+
+### `Product/ml/randomized_capture_gui.py` – labellet dataindsamling
+
+**Hvad:** Styrer randomiserede trials, sender `TAP_SCOPE` til Photon 2, modtager X/Y/Z over seriel, beregner kvalitetsmål og gemmer accepterede eller afviste CSV/JSON-filer.
+
+**Nøglesteder:**
+
+- `Trial` omkring linje 28 beskriver label, tempo og kraft.
+- `parse_args()` omkring linje 66 læser serielport og forsøgsparametre.
+- `RandomizedCapture` omkring linje 84 indeholder GUI- og captureforløbet.
+- `make_frame()` omkring linje 293 beregner baselinekorrigerede akser og dynamisk magnitude.
+- `metrics()` omkring linje 305 beregner peak, RMS, aktiv varighed, event count og clipping.
+- `validate()` omkring linje 339 anvender de klassespecifikke kvalitetsgates.
+- `save()` omkring linje 364 gemmer signal og metadata.
+
+**Eksamenssætning:** “Capture-programmet hjælper mig med at holde label, udførelse og kvalitetskontrol sammen; det er ikke modellen, men værktøjet der producerer dokumenterede træningskandidater.”
+
+### `Product/ml/train.py` – læsbar reference for ML-pipelinen
+
+**Hvad:** Indlæser de accepterede CSV-filer, bygger featurematricen, laver stratificeret holdout, fitter scaler og MLP og skriver metrics og artefakter.
+
+**Nøglefunktioner:**
+
+- `load_config()` linje 37: læser YAML sikkert.
+- `load_raw_data()` linje 42: samler og validerer CSV-kolonner.
+- `sliding_windows()` linje 70: opdeler længere optagelser efter vindue og stride.
+- `peak_count()` linje 91: tæller peaks med threshold og refractory distance.
+- `channel_features()` linje 111: beregner de syv features.
+- `extract_features_for_window()` linje 122: mean-centrerer X/Y/Z, tilføjer magnitude og skaber 28 tal.
+- `build_dataset()` linje 140: laver `X` og `y`; ved endelige firesekunders filer bliver det ét eksempel per optagelse.
+- `validate_class_coverage()` linje 165: kræver nok data i alle konfigurerede klasser.
+- `train_model()` linje 180: konstruerer `MLPClassifier`.
+- `main()` linje 203: udfører split → scaler → fit → predict → metrics → artefakter.
+
+**Vigtig afgrænsning:** Den supplerende 5-fold-CV på `76 %` findes ikke som et fast trin i denne fil. Den blev kørt som en separat kontrolberegning. Det reproducerbare hovedresultat fra `train.py` er 80/20-holdout-resultatet.
+
+### `Product/ml/export_model.py` – fra Python til C++
+
+**Hvad:** Træner med samme kontrakt og skriver scaler, labels, lagstørrelser, vægte og biases som kompilerbar C++.
+
+**Nøglefunktioner:**
+
+- `compute_feature_count()` linje 50 kontrollerer inputdimensionen.
+- `generate_header()` linje 79 skriver C++-interfacet.
+- `_layer_meta()` linje 135 beskriver lagenes dimensioner.
+- `generate_cpp()` linje 149 skriver scaler, parametre og forward-pass.
+- `_train_and_export()` linje 303 udfører split, scaling og træning før eksport.
+- `main()` linje 389 skriver filerne til firmwaremappen.
+
+**Vigtig detalje:** `LabelEncoder` bruger alfabetisk intern klasseorden under træning. Eksporten remapper output til `config.yaml`-ordenen, så firmware, navne og scores fortsat passer sammen.
+
+### `Product/ml/generate_figures.py` – rapportens figurer
+
+**Hvad:** Læser projektdata og genererer signalfigurer samt confusion matrix fra den dokumenterede pipeline.
+
+**Nøglefunktioner:** `load_trials()` linje 34, `plot_gesture_signals()` linje 51, `evaluate_confusion()` linje 84 og `plot_confusion_matrix()` linje 107.
+
+**Afgrænsning:** Filen visualiserer resultater; den ændrer ikke den deployede model.
+
+### `Product/firmware/src/model_data.h` og `model_data.cpp` – den eksporterede model
+
+**Hvad:** Headeren definerer modelmetadata og funktioner. C++-filen indeholder scalerens 28 middel-/scaleværdier, MLP'ens 1.541 parametre, klassenavne og forward-pass.
+
+**Nøglesteder:** `model_init()` omkring linje 255 og `model_infer()` omkring linje 259 i `model_data.cpp`.
+
+**Hvordan:** `model_infer()` standardiserer de 28 inputfeatures, beregner lagene `28 → 32 → 16 → 5` med ReLU i de skjulte lag og softmax på outputtet.
+
+**Hvorfor genereret kode:** Modellen kan afvikles lokalt uden Python eller scikit-learn på Photon 2. De lange arrays er tal, som træningen har lært; de skal ikke forklares én for én.
+
+### `Product/firmware/src/main.cpp` – sensor, features og LIVE-logik
+
+**Hvad:** Er produktets aktive firmware og binder ADXL343, dataopsamling, feature extraction, model-inference, beslutningsfilter, serielkommandoer og RGB-feedback sammen.
+
+**Nøglefunktioner:**
+
+- `channelFeatures()` linje 287: de syv statistikker per kanal.
+- `extractFeatures()` linje 347: X/Y/Z/magnitude → 28 features i korrekt orden.
+- `countImpactEvents()` linje 374: fysisk sanity check for tap-klasser.
+- `updateDecision()` linje 414: confidence, stabilitet, tap-kontrol og debounce.
+- `runInference()` linje 445: feature extraction, `model_infer()`, argmax og beslutning.
+- `readAdxlRawXYZ()` linje 546: samler seks registerbytes til tre signed 16-bit-tal.
+- `readSampleG()` linje 556: rå værdier → `g` med `0,0039 g/LSB`.
+- `startTapScope()`/`runTapScope()` linje 574/595: bufferet X/Y/Z-capture ved 400 Hz.
+- `startBaseline()`/`runBaseline()` linje 682/705: den ældre guidede baseline/capture-rutine ved 50 Hz.
+- `setOperatingMode()` linje 914: skifter mellem DEBUG, TRAINING og LIVE.
+- `handleSerialCommand()` linje 949: håndterer blandt andet `MODE LIVE` og `TAP_SCOPE`.
+- `setup()`/`loop()` linje 1074/1091: initialisering og non-blocking hovedloop.
+
+**Vigtig præcision:** `runInference()` måler kun tiden omkring selve `model_infer()` som model-inference-latency. Feature extraction udføres lige før og er derfor ikke med i dette timingtal.
+
+### `Product/firmware/project.properties` – Particle-build
+
+**Hvad:** Angiver firmwareprojektets navn og afhængigheder til Particle build-systemet.
+
+**Hvorfor:** Filen gør det muligt for Particle CLI at kompilere mappen som et firmwareprojekt. Selve ADXL343-adgangen i `main.cpp` bruger direkte I2C-registerlæsning.
+
+### `Start-Photon2-Demo.ps1` og `START-PHOTON2-DEMO.cmd` – én-kliks demo
+
+**Hvad:** Validerer værktøjer og model, cloud-kompilerer, flasher Photon 2 lokalt og sender `MODE LIVE` over den fundne serielport.
+
+**Nøglesteder i PowerShell:** parameterblokken linje 2, `Invoke-Particle()` linje 27, portdetektion linje 35–41 og `Set-PhotonLiveMode()` linje 56.
+
+**Hvordan:** CMD-filen er kun en dobbeltklikbar indgang, der starter PowerShell-scriptet med korrekte argumenter.
+
+**Hvorfor:** Det reducerer risikoen for at starte demoen med forkert firmware eller driftsform. Det er deploymentautomatisering, ikke en del af klassifikationsalgoritmen.
+
+### `Product/ml/tools/analyze-taps-legacy.py` – tidligere analyse
+
+**Hvad:** Et lille tidligt script til at læse CSV og detektere impulser med simple tærskler.
+
+**Hvorfor det stadig findes:** Det dokumenterer den iterative undersøgelse af taps, men er markeret `legacy`, fordi det ikke definerer den endelige preprocessing, de 28 features eller LIVE-modellen.
+
+### Kode til præsentation og PDF
+
+**Hvad:** `Presentation/fill_existing_deck.py` fylder PowerPoint-skabelonen med tekst, figurer og kodekort. `Presentation/generate_axis_visual.py` laver før/efter-illustrationen af den antagede og målte akseretning. `Presentation/render_exam_notes.py` konverterer dette Markdown-dokument til den tabletvenlige PDF via Chrome/Chromium.
+
+**Hvorfor de nævnes:** De dokumenterer, hvordan præsentationsmaterialet er produceret, men de påvirker hverken data, modeltræning eller firmware-inference.
+
+### Støttefiler uden selvstændig programlogik
+
+- `Product/ml/feature_spec.md` beskriver featurekontrakten i tekst.
+- `Product/ml/requirements.txt` beskriver Python-afhængighederne til ML-værktøjerne.
+- README-filerne beskriver brug og projektstruktur.
+- `Product/ml/artifacts/` indeholder serialiserede resultater fra træning og eksport.
+- `Product/firmware/firmware_photon2.bin` er den kompilerede firmware, mens `build/legacy/` bevarer ældre builds tydeligt adskilt fra den aktuelle demo.
+
+### Hvad er endnu ikke automatisk verificeret?
+
+Der findes ikke en automatiseret “golden vector”-test, som sender præcis samme råvindue gennem Python og C++ og sammenligner alle 28 features og fem outputs numerisk. Pariteten er gennemgået i kode og afprøvet end-to-end, men en sådan test ville være det stærkeste næste skridt til at opdage forskelle i featureorden, floating-point eller preprocessing.
 
 ---
 
