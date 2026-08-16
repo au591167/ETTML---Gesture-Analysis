@@ -123,6 +123,28 @@ h2 {
   line-height: 1.16;
   border-bottom: 1.2pt solid #5eead4;
 }
+h2[id^="slide-"] {
+  break-before: page;
+  margin-top: 0;
+  padding: 5mm 5mm 4mm;
+  color: white;
+  background: linear-gradient(120deg, #123b5d, #0f766e);
+  border: 0;
+  border-radius: 5px;
+}
+h2[id^="slide-"]::before {
+  content: "TALEKORT · POWERPOINT 1:1";
+  display: block;
+  margin-bottom: 1.5mm;
+  color: #99f6e4;
+  font-size: 8.5pt;
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+h2#del-b-fagligt-opslagsværk {
+  break-before: page;
+  padding-top: 5mm;
+}
 h3 { margin: 6mm 0 2mm; color: #0f5f66; font-size: 15pt; line-height: 1.2; }
 h4 { margin: 4mm 0 1.5mm; color: #334155; font-size: 12pt; }
 p { margin: 0 0 2.6mm; orphans: 3; widows: 3; }

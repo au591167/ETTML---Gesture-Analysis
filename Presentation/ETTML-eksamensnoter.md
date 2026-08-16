@@ -1,95 +1,564 @@
-# ETTML – fagligt opslagsværk til eksamen
+# ETTML – præsentationsnoter og fagligt opslagsværk
 
-> Dette er et tabletvenligt opslagsværk, ikke et manuskript, der skal læses fra start til slut.
-> Find det konkrete faglige emne i oversigten, læs **Vigtige pointer** først, og brug derefter resten til at uddybe svaret.
+> **Del A følger PowerPoint-præsentationen 1:1.** Hver slide har sin egen sektion og starter på en ny PDF-side. Brug først det korte taleforløb og de vigtige pointer. Brug uddybningen og kodehenvisningerne, hvis du har brug for flere detaljer. **Del B** er det dybe begrebsopslag.
 
-## Dokumentets struktur
+I PDF'en er alle blå emnenavne klikbare. Tryk eksempelvis på **StandardScaler** under slide 12 for at hoppe direkte til teorien i del B. Brug derefter PDF-læserens tilbagepil for at vende tilbage til talekortet.
 
-Dokumentets hovedrækkefølge følger præsentationen. Hvert slide får sit eget område med:
+## Del A – Præsentationsnoter slide for slide
 
-- slidebudskabet i én sætning;
-- korte talepointer;
-- de faglige begreber, der hører til slidet;
-- projektets konkrete tal og kodekoblinger;
-- uddybende forklaringer, som kan findes hurtigt under eksamen.
+### Hurtig navigation
 
-Hvis eksaminator spørger uden for præsentationens aktuelle område, bruges det globale begrebsindeks længere nede.
+[Slide 1](#slide-118-tiny-machine-learning) · [Slide 2](#slide-218-agenda) · [Slide 3](#slide-318-projektintroduktion) · [Slide 4](#slide-418-demo) · [Slide 5](#slide-518-hardware-adxl343-og-photon-2) · [Slide 6](#slide-618-fra-antagelse-til-målt-orientering) · [Slide 7](#slide-718-samlet-pipeline) · [Slide 8](#slide-818-dataindsamling) · [Slide 9](#slide-918-datasæt-og-kvalitetskontrol) · [Slide 10](#slide-1018-fra-tidsserie-til-28-features) · [Slide 11](#slide-1118-kodefokus-feature-extraction) · [Slide 12](#slide-1218-skalering-og-neural-model) · [Slide 13](#slide-1318-træning-og-evaluering) · [Slide 14](#slide-1418-kodefokus-split-scaler-og-træning) · [Slide 15](#slide-1518-deployment-på-photon-2) · [Slide 16](#slide-1618-kodefokus-inference-og-beslutning) · [Slide 17](#slide-1718-resultater) · [Slide 18](#slide-1818-aktuel-datastatus) · [Begrebsindeks](#globalt-begrebsindeks)
 
-## Præsentationens flow
+## Slide 1/18 – Tiny Machine Learning
 
-### Slide 1 – Tiny Machine Learning
+**Slidebudskab:** Projektet er en lokal TinyML-løsning, der genkender fysiske gestusser på en Photon 2 med en ADXL343.
 
-Titel, navn og eksamenspræsentation.
+**Kort taleforløb:**
 
-### Slide 2 – Agenda
+> “Mit projekt hedder *Gesture Recognition on the Edge*. Jeg har bygget et system, hvor en ADXL343 måler bevægelser, og en lille machine-learning-model på en Particle Photon 2 omsætter dem til kommandoer. Inferensen foregår lokalt på enheden. Jeg starter med at vise produktet og følger derefter dataene kronologisk fra sensor til resultat.”
 
-Projekt og demonstration → hardware og data → features og model → træning og deployment → resultater.
+**Vigtige pointer:**
 
-### Slide 3 – Projektintroduktion
+- **TinyML** er machine learning på ressourcebegrænset embedded hardware.
+- **Edge inference** betyder, at nye input behandles lokalt frem for i cloud.
+- Modellen trænes på en computer, men det færdige forward-pass kører på Photon 2.
+- Projektet kombinerer embedded programmering, signalbehandling og machine learning.
 
-Projektets problem, formål, fem klasser, lokale inferens og konkrete output.
+**Uddybning i del B:** [TinyML](#tinyml) · [Edge computing](#edge-computing-og-lokal-inference) · [Inference](#inference)
 
-### Slide 4 – Demo
+**Overgang:**
 
-Fra fysisk gestus til klassifikation, `EVENT`, blackjack-kommando og RGB-feedback.
+> “Før demonstrationen viser jeg kort den rækkefølge, jeg gennemgår projektet i.”
 
-### Slide 5 – Hardware (ADXL343)
+## Slide 2/18 – Agenda
 
-Photon 2, ADXL343, X/Y/Z, tyngdekraft, støj, måleområde, opløsning og I2C.
+**Slidebudskab:** Præsentationen følger dataenes vej fra fysisk problem til målt resultat.
 
-### Slide 6 – Fysisk orientering og datalæring
+**Kort taleforløb:**
 
-Startantagelsen om Y som op/ned korrigeres til Y venstre/højre, X frem/tilbage og Z op/ned. Data viste samtidig, at taps gav stærkere respons på Z end først forventet, og den endelige pipeline anvender derfor alle tre akser plus magnitude.
+> “Jeg går kronologisk gennem projektet: først problem og demo, derefter hardware og dataindsamling, så preprocessing og features, model og deployment og til sidst resultater og begrænsninger. Flowet er problem → data → features → model → resultat.”
 
-### Slide 7 – Samlet pipeline for systemet
+**Vigtige pointer:**
 
-ADXL343 → sampling → vindue → features → scaler → MLP → beslutningsfilter → output.
+1. Projekt og demonstration.
+2. Hardware og data.
+3. Features.
+4. Model og deployment.
+5. Resultater og næste iteration.
 
-### Slide 8 – Dataindsamling
+Denne rækkefølge gør det muligt at forklare hvert designvalg ud fra det foregående trin. De planlagte spørgepauser ligger efter hardware, data, model og resultater.
 
-Rå sensordata, stationær baseline, motion-trigger, 400 Hz og firesekunders optagelser.
+**Overgang:**
 
-### Slide 9 – Datasæt og kvalitetskontrol
+> “Jeg begynder derfor med det konkrete problem, systemet skal løse.”
 
-Labels, 25 balancerede optagelser, randomisering, automatiske kontroller, bias og begrænsninger.
+## Slide 3/18 – Projektintroduktion
 
-### Slide 10 – Fra tidsserie til 28 features
+**Slidebudskab:** Systemet klassificerer fem kendte bevægelsesklasser og omsætter fire aktive gestusser til observerbare blackjack-kommandoer.
 
-Mean removal, magnitude, syv statistiske features per kanal og komprimering af tidsserien.
+**Kort taleforløb:**
 
-### Slide 11 – Kodefokus: feature extraction
+> “Formålet var at lave en gestusbaseret brugergrænseflade, som fungerer lokalt på Photon 2. Sensorvinduet klassificeres som idle, ét tap, to taps, tre taps eller en venstre-højre-rystelse. De aktive klasser bliver til henholdsvis stand, hit, exit og split. Idle betyder, at systemet ikke skal udføre en handling.”
 
-`train.py`: fire kanaler gennemløbes, middelværdien fjernes, og syv statistikker tilføjes i fast rækkefølge.
+**Vigtige pointer:**
 
-### Slide 12 – Skalering og neural model
+- `idle` → ingen kommando.
+- `tap1` → `stand`.
+- `tap2` → `hit`.
+- `tap3` → `exit`.
+- `shake_lr` → `split`.
+- Outputtet er både en seriel `EVENT`-linje og RGB-feedback.
+- Dette er **supervised flerklasseklassifikation**, fordi hvert træningseksempel har en kendt label.
+- ML blev valgt, fordi klasserne beskrives af flere overlappende signalegenskaber; regler alene ville hurtigt blive skrøbelige.
 
-StandardScaler, neuroner, vægte, bias, MLP `28 → 32 → 16 → 5`, ReLU og softmax.
+**Afgrænsning:** Prototypen viser et fungerende end-to-end-system. Den dokumenterer ikke generalisering til nye brugere, fordi de rapporterede data kommer fra én operatør og én afsluttende session.
 
-### Slide 13 – Træning og evaluering
+**Uddybning i del B:** [Problem og scope](#4-problem-scope-og-kursuskrav) · [Supervised learning](#supervised-learning) · [Klassifikation](#klassifikation-regression-og-anomaly-detection)
 
-Supervised learning, backpropagation, stratificeret 80/20 holdout, metrics og 5-fold cross-validation.
+**Overgang:**
 
-### Slide 14 – Kodefokus: split, scaler og træning
+> “Før jeg forklarer teknikken, viser jeg hele kæden i praksis.”
 
-`train.py`: `train_test_split`, stratificering, seed 42, `fit_transform(train)`, `transform(test)` og `model.fit()`.
+## Slide 4/18 – Demo
 
-### Slide 15 – Deployment på Photon 2
+**Slidebudskab:** En fysisk gestus bliver målt, klassificeret lokalt og vist som `EVENT` og RGB-feedback.
 
-Offline træning, eksport til C++, forward-pass, inferens, confidence, stabilisering, tap-kontrol og debounce.
+**Kort taleforløb:**
 
-### Slide 16 – Kodefokus: inference og beslutning
+> “Jeg udfører nu en gestus. ADXL343 sender målinger til Photon 2, firmwaren beregner features, og MLP'et giver fem klassescores. Når resultatet er sikkert og stabilt, udsender enheden en `EVENT` og viser RGB-feedback. Der anvendes ikke cloud-inference.”
 
-`main.cpp` og `model_data.cpp`: features, fem scores, valg af højeste score og filtrering til en stabil `EVENT`.
+**Mens demoen kører:**
 
-### Slide 17 – Resultater
+1. Peg på den fysiske gestus.
+2. Peg på det serielle `EVENT`-output.
+3. Peg på RGB-feedbacken.
+4. Knyt resultatet til den valgte blackjack-kommando.
 
-Accuracy, cross-validation, confusion matrix, inferenstid, hukommelse og fysisk verifikation.
+**Vigtige pointer:**
 
-### Slide 18 – Aktuel datastatus og næste skridt
+- Demoen dokumenterer integrationen fra sensor til output.
+- Den dokumenterer ikke alene modellens generaliserings-accuracy.
+- Klassifikationen er lokal; computerens serielmonitor viser kun enhedens output.
+- Hvis en gestus ikke accepteres, kan det skyldes confidence, stabilitetskravet, tap-kontrollen eller debounce — ikke nødvendigvis manglende sensorinput.
 
-Rapportens 25-optagelses-snapshot, den større kandidatpulje, balancering, retræning og ny evaluering.
+**Kode:** `Product/firmware/src/main.cpp`: `runInference()` og `updateDecision()`.
 
-## Sådan bruges dokumentet
+**Overgang:**
+
+> “Nu går jeg tilbage til begyndelsen af kæden og forklarer den hardware, der producerer inputdataene.”
+
+## Slide 5/18 – Hardware: ADXL343 og Photon 2
+
+**Slidebudskab:** Photon 2 læser synkroniseret X-, Y- og Z-acceleration fra ADXL343 over I2C.
+
+**Kort taleforløb:**
+
+> “Hardwaren består af en Particle Photon 2 og et digitalt tre-akset ADXL343-accelerometer. De kommunikerer over I2C. Sensoren er sat til 400 Hz og ±16 g i full-resolution mode. Hver måling indeholder X, Y og Z, som omregnes fra rå signed 16-bit-tal til g.”
+
+**Vigtige pointer:**
+
+- Photon 2 anvender en 200 MHz Arm Cortex-M33 som hovedprocessor.
+- `D0` er SDA, og `D1` er SCL.
+- Firmwaren prøver I2C-adresserne `0x53` og `0x1D` og forventer device-ID `0xE5`.
+- Sensorområdet er ±16 g for at reducere risikoen for clipping ved hurtige taps.
+- Den nominelle full-resolution scale factor er cirka `0,0039 g/LSB`.
+- Sensorens Output Data Rate er 400 Hz; I2C-clock på 400 kHz er bussens bithastighed og ikke samplingfrekvensen.
+- En stationær sensor viser ikke nødvendigvis nul: tyngdekraft, offset og støj er stadig til stede.
+
+**Kode:**
+
+- `readAdxlRawXYZ()` samler seks registerbytes til X/Y/Z.
+- `readSampleG()` ganger råværdierne med `0,0039`.
+- `initAdxlMeasurementMode()` konfigurerer sensoren.
+
+**Uddybning i del B:** [Accelerometer](#accelerometer) · [Sensoropløsning og måleområde](#sensoropløsning-måleområde-og-enheder) · [I2C](#i2c)
+
+**Overgang:**
+
+> “Da forbindelsen virkede, var næste opgave at forstå, hvordan de tre akser faktisk lå i min fysiske montering.”
+
+## Slide 6/18 – Fra antagelse til målt orientering
+
+**Slidebudskab:** Datastrømmen var korrekt X/Y/Z, men den første fysiske fortolkning af akserne var forkert.
+
+**Kort taleforløb:**
+
+> “Jeg antog først, at Y var op og ned. Dataanalysen viste, at den fysiske orientering i min montering var Y venstre-højre, X frem-tilbage og Z op-ned. Sensoren sendte stadig værdierne i X-, Y-, Z-rækkefølge; det var min fortolkning af retningerne, jeg rettede. Taps gav samtidig en markant stærkere respons på Z end på Y.”
+
+**Målt evidens:**
+
+- Ved idle var middelværdierne cirka `X = 0,04 g`, `Y = 0,03 g`, `Z = 0,91 g`; tyngdekraften lå hovedsageligt på Z.
+- For tap-klasserne var mean-centreret peak cirka `7,64 g` på Z mod `4,48 g` på Y.
+- Tap-RMS var cirka `0,304 g` på Z mod `0,152 g` på Y.
+- Z var peak-dominant i 10 af 15 tap-optagelser.
+- Shake havde derimod nyttig vedvarende information på Y.
+
+**Designkonsekvens:** Den endelige pipeline bruger X, Y og Z samt magnitude. Der foretages ikke en kunstig ombytning af Y- og Z-kolonnerne.
+
+**Vigtig præcision:** Resultatet understøtter designændringen, men der blev ikke udført en kontrolleret akseablation. Derfor kan hele modelverbredringen ikke tilskrives Z alene.
+
+**Uddybning i del B:** [3D-akser og fysisk orientering](#3d-akser-og-fysisk-orientering-slide-6) · [Iterativ udvikling](#iterativ-udvikling-fra-rådata-og-akseantagelse-til-xyz-og-magnitude)
+
+**Overgang:**
+
+> “Med sensor og orientering på plads kan hele systemets dataflow nu vises fra venstre mod højre.”
+
+## Slide 7/18 – Samlet pipeline
+
+**Slidebudskab:** Hver fysisk gestus gennemgår en fast kæde fra rå acceleration til en filtreret handling.
+
+**Kort taleforløb:**
+
+> “ADXL343 måler X, Y og Z ved 400 Hz. Fire sekunder giver 1.600 samples per akse. Firmwaren fjerner middelværdien, beregner magnitude og 28 features, standardiserer dem og sender dem gennem MLP'et. Modellens output filtreres derefter med confidence, stabilitet, tap-kontrol og debounce, før en kommando udsendes.”
+
+**Pipeline:**
+
+`gestus → X/Y/Z → 1.600-sample-vindue → mean removal + magnitude → 28 features → StandardScaler → MLP → fem scores → beslutningsfilter → EVENT + RGB`
+
+**Vigtige pointer:**
+
+- Preprocessing og featureorden skal være identiske under træning og LIVE-inference.
+- MLP'et klassificerer; beslutningslogikken afgør, om klassifikationen må blive til en handling.
+- Træning foregår offline. Den deployede kæde anvender faste scaler- og modelparametre.
+- Systemet er derfor en hybrid: lært klassifikation efterfulgt af deterministiske sikkerhedsregler.
+
+**Uddybning i del B:** [Hele systemets dataflow](#3-hele-systemets-dataflow) · [TinyML-toolchain](#tinyml-toolchain)
+
+**Overgang:**
+
+> “Det første praktiske trin i pipelinen var at få konsistente og labellede sensoroptagelser.”
+
+## Slide 8/18 – Dataindsamling
+
+**Slidebudskab:** Rå sensorobservationer og en stationær baseline blev brugt til at skelne almindelig støj fra reel interaktion og til at etablere den endelige 400 Hz-kontrakt.
+
+**Kort taleforløb:**
+
+> “Jeg begyndte med at observere de rå X-, Y- og Z-data ved stilstand. De er ikke nul på grund af tyngdekraft, offset og støj. En stationær baseline gav derfor et referencepunkt for normal variation. De tidlige guidede forsøg brugte 50 Hz, men hurtige taps blev bedre repræsenteret ved 400 Hz. Den endelige dataindsamling gemmer fire sekunder, altså 1.600 synkroniserede X/Y/Z-samples.”
+
+**Baselineprincippet:**
+
+`motion threshold = max(0,05 g, 3 × standardafvigelsen for stationær magnitude)`
+
+- Baseline-triggeren bestemmer kun, om bevægelsen afviger tydeligt fra stilstand.
+- Den klassificerer ikke gestussen.
+- Den ældre guidede baseline-rutine poller ved 50 Hz.
+- Det endelige `pilot_v3`-datasæt og LIVE-modellen bruger 400 Hz.
+
+**Endelig capture:**
+
+- `TAP_SCOPE` sampler X/Y/Z i RAM ved 2,5 ms interval.
+- Data udskrives først bagefter, så seriel tekst ikke forstyrrer samplingtimingen.
+- Fire sekunder × 400 Hz = 1.600 samples.
+- Der gemmes både signal, label, tempo, kraft, session og kvalitetsmetadata.
+
+**Kode:** `startTapScope()` og `runTapScope()` i `main.cpp`; captureflowet i `randomized_capture_gui.py`.
+
+**Uddybning i del B:** [Fra rådata til baseline](#fra-rå-sensordata-til-støjbaseline-og-inputsignal) · [Sampling](#sampling-og-samplingfrekvens) · [Hvorfor 400 Hz?](#hvorfor-400-hz)
+
+**Overgang:**
+
+> “Når et signal var optaget, skulle det kvalitetssikres, før det måtte blive en del af datasættet.”
+
+## Slide 9/18 – Datasæt og kvalitetskontrol
+
+**Slidebudskab:** Det rapporterede datasæt er lille og balanceret, og automatiske kvalitetsgates beskytter labels uden at fjerne risikoen for bias.
+
+**Kort taleforløb:**
+
+> “Rapportens model bruger 25 accepterede optagelser: fem fra hver af de fem klasser. Trials blev randomiseret på tværs af klasser og udførelsesbetingelser. Captureprogrammet kontrollerede blandt andet clipping, bevægelse under idle, impact count for taps og varighed og RMS for shake. Det forbedrer labelkvaliteten, men meget stram filtrering kan også skabe unaturligt rene data.”
+
+**Klassernes fordeling:**
+
+- `idle`: 5
+- `tap1`: 5
+- `tap2`: 5
+- `tap3`: 5
+- `shake_lr`: 5
+
+**Automatiske kvalitetsgates:**
+
+- Clipping: afvis ved rå akse på mindst `15,5 g`.
+- Idle: dynamisk peak-magnitude højst `0,15 g`.
+- Tap: aksepeak mindst `0,40 g` og præcis forventet antal impacts.
+- Impact: dynamisk magnitude mindst `0,35 g`; mere end `150 ms` mellem aktive områder giver et nyt event.
+- Shake: dynamisk RMS mindst `0,10 g` og aktiv varighed mindst `300 ms`.
+
+**Begrænsninger:** Én operatør, én afsluttende session og kun fem eksempler per klasse. Klassebalance fjerner ikke bruger-, session- eller monteringsbias.
+
+**Kode:** `metrics()`, `validate()` og `save()` i `Product/ml/randomized_capture_gui.py`.
+
+**Uddybning i del B:** [Datasættet](#6-datasættet-labels-og-klassebalance) · [Kvalitetskontrol](#kvalitetskontrol) · [Dataset bias](#dataset-bias-og-repræsentativitet)
+
+**Overgang:**
+
+> “De rå tidsserier er for store og tidsafhængige som direkte input til mit lille MLP, så næste trin er feature engineering.”
+
+## Slide 10/18 – Fra tidsserie til 28 features
+
+**Slidebudskab:** Hver 4-sekunders optagelse komprimeres fra 4.800 rå akseværdier til 28 forklarlige modelinputs.
+
+**Kort taleforløb:**
+
+> “Først beregner jeg magnitude fra X, Y og Z. Derefter fjerner jeg middelværdien separat fra X, Y, Z og magnitude for at reducere statisk offset. Fra hver af de fire kanaler udtrækker jeg syv statistiske egenskaber. Fire gange syv giver 28 features.”
+
+**De fire kanaler:** `X`, `Y`, `Z` og `magnitude = √(X² + Y² + Z²)`.
+
+**Syv features per kanal:**
+
+1. Standardafvigelse — signalets variation.
+2. Minimum — største negative udsving efter centrering.
+3. Maksimum — største positive udsving.
+4. Range — maksimum minus minimum.
+5. Energi — `mean(x²)`, ikke fysisk energi i joule.
+6. Peak count — antal tydelige lokale peaks.
+7. Maximum absolute difference — hurtigste ændring mellem nabosamples.
+
+`4 kanaler × 7 features = 28 features`
+
+**Hvorfor:** Det reducerer inputdimension, modelstørrelse, RAM og beregning. Tradeoffet er, at noget af den præcise tidslige rækkefølge går tabt.
+
+**Vigtig præcision:** En feature er en numerisk egenskab udledt af inputtet. Den bestemmer ikke alene outputtet; modellen lærer, hvordan alle 28 features skal vægtes og kombineres.
+
+**Uddybning i del B:** [Preprocessing og features](#7-preprocessing-og-features) · [Magnitude](#magnitude) · [Feature engineering](#feature-engineering)
+
+**Overgang:**
+
+> “På næste slide viser jeg den konkrete Python-kode, der udfører denne komprimering.”
+
+## Slide 11/18 – Kodefokus: Feature extraction
+
+**Slidebudskab:** Koden gennemløber fire kanaler, mean-centrerer hver kanal og tilføjer syv features i en fast rækkefølge.
+
+**Kort taleforløb:**
+
+> “`extract_features_for_window()` starter med X, Y og Z og tilføjer magnitude som fjerde kanal. For hver kanal konverteres data til et numerisk array, middelværdien trækkes fra, og `channel_features()` returnerer de syv statistikker. Resultaterne føjes til én liste, som derfor ender med 28 tal.”
+
+```python
+channels = ["ax", "ay", "az"]
+if use_mag:
+    channels = channels + ["mag"]
+
+feats = []
+for c in channels:
+    x = window_df[c].to_numpy(dtype=np.float32)
+    x = x - np.mean(x)
+    feats.extend(channel_features(x))
+```
+
+**Linje for linje:**
+
+- `channels` fastlægger kanalrækkefølgen.
+- `to_numpy(dtype=np.float32)` giver et numerisk array med embedded-relevant præcision.
+- `x - np.mean(x)` fjerner kanalens gennemsnit i dette vindue.
+- `channel_features(x)` beregner de syv tal.
+- `extend` lægger alle syv tal efter hinanden; det er ikke det samme som at tilføje en indlejret liste.
+
+**Kodekontrakt:** Python og C++ skal bruge rækkefølgen X-features → Y-features → Z-features → magnitude-features. Ændret orden giver de lærte vægte forkerte input.
+
+**Kodehenvisninger:** `extract_features_for_window()` og `channel_features()` i `train.py`; `extractFeatures()` og `channelFeatures()` i `main.cpp`.
+
+**Overgang:**
+
+> “De 28 tal har meget forskellige størrelser, så før de går ind i netværket, skal de skaleres.”
+
+## Slide 12/18 – Skalering og neural model
+
+**Slidebudskab:** Hver feature standardiseres, før et lille MLP kombinerer de 28 inputs til fem klassesandsynligheder.
+
+**Kort taleforløb:**
+
+> “StandardScaler lærer et gennemsnit og en skala for hver af de 28 featuredimensioner fra træningsdata. En ny feature omregnes som `(x − μ) / σ`. De standardiserede inputs sendes gennem et MLP med 28 inputs, skjulte lag på 32 og 16 neuroner og fem outputs. De skjulte lag bruger ReLU, og outputlaget bruger softmax.”
+
+**StandardScaler:**
+
+`z = (x − μ) / σ`
+
+- `μ` og `σ` læres kun fra træningsdata.
+- Hver featuredimension har sine egne værdier.
+- De 28 middelværdier og 28 skalaer eksporteres til C++.
+
+**Et neuron:**
+
+`z = w₁x₁ + w₂x₂ + … + wₙxₙ + b`
+
+- Inputs multipliceres med lærte vægte.
+- Bias forskyder resultatet.
+- ReLU giver `max(0, z)` i de skjulte lag.
+- Softmax omsætter de fem logits til positive scores, der summerer til 1.
+
+**Arkitektur og størrelse:** `28 → 32 → 16 → 5`, i alt `1.541` lærte vægte og biases.
+
+**Hvorfor denne model:** Den er lille, hurtig og kan udtrykke ikke-lineære kombinationer af features. Med kun 25 eksempler er der dog stadig betydelig overfitting-risiko.
+
+**Uddybning i del B:** [StandardScaler](#8-standardscaler) · [Neuron, vægte og bias](#neuron-vægte-og-bias) · [ReLU](#relu) · [Softmax](#softmax)
+
+**Overgang:**
+
+> “Netværkets vægte skal først læres og derefter vurderes på data, som ikke deltog i træningen.”
+
+## Slide 13/18 – Træning og evaluering
+
+**Slidebudskab:** Modellen trænes supervised med backpropagation og evalueres både med et fast stratificeret holdout og fem skiftende testfolds.
+
+**Kort taleforløb:**
+
+> “Alle optagelser har labels, så modellen trænes supervised. I et stratificeret 80/20-holdout trænes på 20 optagelser og testes på fem — én fra hver klasse. Seed 42 gør opdelingen reproducerbar. Som supplerende stabilitetskontrol anvendte jeg stratificeret 5-fold cross-validation, hvor hver gruppe er testdata én gang.”
+
+**Under træning:**
+
+1. Forward-pass beregner scores.
+2. Loss måler forskellen mellem prediction og korrekt label.
+3. Backpropagation beregner gradienter baglæns gennem lagene.
+4. Optimizeren opdaterer vægte og biases.
+5. Processen gentages op til 500 iterationer.
+
+**80/20-holdout:** 20 train + 5 test. Én fejl ændrer accuracy med 20 procentpoint.
+
+**5-fold-CV:** Fem træninger med fold-accuracy `60 %, 60 %, 100 %, 80 %, 80 %`; gennemsnit `76 %`.
+
+**Seed 42:** En vilkårlig startværdi til den pseudo-tilfældige blanding. Den gør eksperimentet reproducerbart, men forbedrer ikke modellen.
+
+**Vigtig præcision:** Den nuværende `train.py` udfører det faste holdout. CV-resultatet kommer fra en separat kontrolberegning med ny scaler og ny MLP i hver fold.
+
+**Uddybning i del B:** [Backpropagation](#backpropagation) · [Stratificeret holdout](#stratificeret-8020-holdout) · [Cross-validation](#cross-validation-cv-fem-testrunder-med-skiftende-testdata) · [Seed 42](#seed-42-og-random_state-slides-1314-træning-og-evaluering)
+
+**Overgang:**
+
+> “På næste slide viser jeg de kodelinjer, som udfører split, skalering og træning uden data leakage.”
+
+## Slide 14/18 – Kodefokus: Split, scaler og træning
+
+**Slidebudskab:** Testdata holdes ude af både scaler-fit og modeltræning.
+
+**Kort taleforløb:**
+
+> “`train_test_split` laver det stratificerede 80/20-split med seed 42. `fit_transform` på træningsdata lærer scalerens værdier og anvender dem. Testdata får kun `transform`, så de ikke påvirker preprocessing. Derefter træner `model.fit()` MLP'et på de 20 skalerede træningseksempler, og `predict()` udfører inference på de fem testeksempler.”
+
+```python
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y_enc,
+    test_size=0.2,
+    random_state=42,
+    stratify=y_enc,
+)
+
+scaler = StandardScaler()
+X_train_s = scaler.fit_transform(X_train)
+X_test_s = scaler.transform(X_test)
+
+model = train_model(cfg, X_train_s, y_train)
+y_pred = model.predict(X_test_s)
+```
+
+**Vigtige pointer:**
+
+- `stratify=y_enc` bevarer klassefordelingen.
+- `random_state=42` låser den reproducerbare opdeling.
+- `fit_transform(train)` lærer kun fra train.
+- `transform(test)` genbruger train-statistikken.
+- Hvis scaler blev fitted på alle 25 eksempler, ville det være data leakage.
+- `model.fit()` skjuler forward-pass, loss, backpropagation og vægtopdateringer bag ét API-kald.
+- Konfigurationens batch size er 32, men der er kun 20 træningseksempler; scikit-learn reducerer derfor den effektive batch til 20.
+
+**Kode:** `main()` og `train_model()` i `Product/ml/train.py`.
+
+**Overgang:**
+
+> “Når modellen er trænet, skal scaler og lærte parametre flyttes fra Python til Photon 2.”
+
+## Slide 15/18 – Deployment på Photon 2
+
+**Slidebudskab:** Træningen foregår offline, mens Photon 2 udfører et lille C++-forward-pass med faste parametre og efterfølgende beslutningsfiltre.
+
+**Kort taleforløb:**
+
+> “`export_model.py` skriver scalerens værdier, klasser, vægte og biases til `model_data.h` og `model_data.cpp`. På Photon 2 standardiseres de 28 features, hvorefter netværket beregner lagene 28 → 32 → 16 → 5. Det er inference med faste parametre; der udføres ikke backpropagation eller selvtræning på enheden.”
+
+**Deploymentkæde:**
+
+`Python-data → features → scaler + MLP-træning → C++-arrays → Particle-build → flash → LIVE-inference`
+
+**Hvorfor offline træning:**
+
+- Backpropagation kræver ekstra aktiveringer, gradienter, RAM, beregning og energi.
+- LIVE-data har ikke automatisk korrekte labels.
+- Offline træning gør datasplit, metrics og modelversion lettere at kontrollere.
+- On-device training er ikke principielt umulig, men kræver en anden arkitektur og er ikke nødvendig i dette projekt.
+
+**Beslutningsfiltre:** score mindst `0,75`, tre ens predictions, fysisk tap-kontrol og `4.000 ms` debounce.
+
+**Ressourcer:** Seneste build bruger `27.950 B` flash og `46.686 B` RAM. Selve model-forward-pass blev målt til cirka `0,35 ms`.
+
+**Kode:** `Product/ml/export_model.py`, `Product/firmware/src/model_data.cpp` og `main.cpp`.
+
+**Uddybning i del B:** [Python-model til C++](#12-python-model-til-c) · [Offline og on-device training](#offline-training-og-on-device-training) · [Designbegrundelse](#designbegrundelse-hvorfor-ikke-selvtræning-på-photon-2)
+
+**Overgang:**
+
+> “Næste kodeudsnit viser, hvordan enheden går fra 28 features til en godkendt `EVENT`.”
+
+## Slide 16/18 – Kodefokus: Inference og beslutning
+
+**Slidebudskab:** Modelkaldet giver fem scores; firmwarelogikken gør først den bedste sikre og stabile score til en handling.
+
+**Kort taleforløb:**
+
+> “`runInference()` beregner først 28 features. `model_infer()` standardiserer dem og udfører forward-pass til fem softmax-scores. En løkke finder den højeste score. `updateDecision()` kræver derefter tilstrækkelig confidence, tre ens predictions, korrekt tap count og udløbet debounce, før der udsendes et event.”
+
+```cpp
+extractFeatures(features);
+tinyml_model::model_infer(features, 28, scores, 5);
+
+int bestIdx = 0;
+for (size_t i = 1; i < 5; ++i) {
+    if (scores[i] > scores[bestIdx]) bestIdx = (int)i;
+}
+const int eventClass = updateDecision(
+    bestIdx, scores[bestIdx], millis());
+```
+
+**Beslutningsrækkefølge:**
+
+`28 features → scaler + MLP → fem scores → argmax → score ≥ 0,75 → tre ens → tap-kontrol → 4 s debounce → EVENT + RGB`
+
+**Vigtige pointer:**
+
+- `argmax` vælger indeks for den højeste score. `return -1` betyder “ingen godkendt handling endnu”; det er ikke en modelklasse.
+- Filtrene reducerer falske events, men øger responsforsinkelsen og kan afvise korrekte ustabile predictions.
+- Python-accuracy måler MLP'et. Den komplette LIVE-adfærd inkluderer yderligere regler og har derfor ikke automatisk samme event-accuracy.
+- Inferenstimingtallet måler kun `model_infer()`, ikke feature extraction. Der findes endnu ikke en automatisk golden-vector-test mellem Python og C++.
+
+**Kode:** `runInference()`, `countImpactEvents()` og `updateDecision()` i `main.cpp`; `model_infer()` i `model_data.cpp`.
+
+**Uddybning i del B:** [Forward-pass](#forward-pass) · [Firmware og beslutningslogik](#13-firmware-og-beslutningslogik) · [Confidence threshold](#confidence-threshold) · [Debounce](#debounce)
+
+## Slide 17/18 – Resultater
+
+**Slidebudskab:** Prototypen virker end-to-end og opnåede lovende pilotresultater, men testgrundlaget er meget lille.
+
+**Kort taleforløb:**
+
+> “På det stratificerede holdout blev fire af fem testoptagelser klassificeret korrekt, altså 80 %. Tap1 blev forvekslet med tap2. Macro precision var 70 %, recall 80 % og F1 73,3 %. Femfolds-cross-validation gav 76 % i gennemsnit. Model-forward-pass tog cirka 345 mikrosekunder i gennemsnit, og den registrerede LIVE-test havde nul sensor-read-fejl.”
+
+**Dokumenterede tal:**
+
+- Holdout accuracy: `80 %` = 4/5.
+- Macro precision: `70,0 %`.
+- Macro recall: `80,0 %`.
+- Macro F1: `73,3 %`.
+- 5-fold-CV: `76 %` = 19/25 fold-predictions.
+- Fejl: `tap1 → tap2` i holdout-splittet.
+- Model-inference: cirka `345 µs` gennemsnit og `364 µs` maksimum i den registrerede LIVE-test.
+- Firmware-build: `27.950 B` flash og `46.686 B` RAM.
+- Registrerede sensor-read-fejl i LIVE-testen: `0`.
+
+**Fortolkning:** Én fejl blandt fem testeksempler ændrer accuracy med 20 procentpoint. Resultaterne viser feasibility og en fungerende prototype, ikke et præcist estimat for nye brugere.
+
+**Vigtig skelnen:** Confusion matrix og klassifikationsmetrics gælder MLP'ets predictions på holdout-data. Den fysiske demo viser den samlede hybridpipeline med beslutningsfiltre.
+
+**Uddybning i del B:** [Projektets resultater](#projektets-resultater) · [Confusion matrix](#confusion-matrix) · [Accuracy](#accuracy) · [Precision](#precision) · [Recall](#recall) · [F1](#f1-score)
+
+**Overgang:**
+
+> “Til sidst adskiller jeg rapportens evaluerede snapshot fra den data, der er indsamlet bagefter.”
+
+## Slide 18/18 – Aktuel datastatus
+
+**Slidebudskab:** Der findes nu mere data, men de rapporterede metrics må fortsat knyttes til det balancerede 25-optagelses-snapshot.
+
+**Kort taleforløb:**
+
+> “Rapportens dokumenterede model og metrics er baseret på 25 balancerede optagelser. Repository indeholder nu 49 kontraktkompatible kandidater: fem idle, fem tap1, 14 tap2, 20 tap3 og fem shake. De ekstra data er ubalancerede og er endnu ikke brugt til de rapporterede resultater. Næste kontrollerede iteration er derfor at indsamle de manglende klasser, kuratere og balancere, retræne og gennemføre en ny blind evaluering.”
+
+**Status:**
+
+- **Rapportsnapshot:** 25 optagelser, fem per klasse, balanceret, trænet, evalueret og deployeret.
+- **Aktuel kandidatpulje:** 49 kontraktkompatible optagelser.
+- Fordeling: `idle 5 · tap1 5 · tap2 14 · tap3 20 · shake_lr 5`.
+- De 24 ekstra optagelser ligger kun i tap2 og tap3.
+- Flere optagelser er ikke automatisk bedre evidens, hvis klasse-, bruger- og sessionsvariation mangler.
+
+**Næste iteration:**
+
+1. Indsaml flere idle-, tap1- og shake-optagelser samt nye brugere/sessioner.
+2. Kurater og balancér datasættet.
+3. Fastlæg et nyt uafhængigt split.
+4. Retræn og eksportér modellen.
+5. Gentag offline metrics og end-to-end LIVE-test.
+
+**Afsluttende konklusion:**
+
+> “Projektet demonstrerer en fungerende lokal TinyML-pipeline fra fysisk gestus til observerbar handling. De vigtigste tekniske bidrag er den målte forståelse af sensororienteringen, den konsekvente 28-feature-kontrakt og deployment af et rigtigt MLP-forward-pass på Photon 2. Den største begrænsning er datamængde og repræsentativitet, så næste skridt er bedre data og en ny blind evaluering — ikke at overfortolke de nuværende 80 %.”
+
+**Uddybning i del B:** [Aktuel datapulje](#rapportens-snapshot-kontra-den-aktuelle-datapulje) · [Begrænsninger og næste eksperiment](#14-begrænsninger-og-næste-eksperiment) · [Stærk konklusion](#stærk-konklusion)
+
+---
+
+## Del B – Fagligt opslagsværk
+
+### Sådan bruges opslagsværket
 
 Hvert fagligt begreb har sin egen overskrift. Under overskriften står først en enkel forklaring i hele sætninger og derefter de vigtigste pointer som bullets. Hvor det er relevant, står der også et konkret eksempel fra projektet og ekstra teori.
 
@@ -101,6 +570,7 @@ Et kort svar kan normalt bygges sådan:
 
 ### Akut hjælp
 
+- [Tilbage til slide-for-slide-talekort](#del-a-præsentationsnoter-slide-for-slide)
 - [Hvis jeg går blank](#1-hvis-jeg-går-blank)
 - [Projektet på 60 sekunder](#2-projektet-på-60-sekunder)
 - [Hele systemets dataflow](#3-hele-systemets-dataflow)
